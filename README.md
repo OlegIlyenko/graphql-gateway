@@ -1,5 +1,7 @@
 **graphql-gateway** - SDL-based GraphQL gateway for REST and GraphQL-based micro-services
 
+[![Build Status](https://travis-ci.org/OlegIlyenko/graphql-gateway.svg?branch=master)](https://travis-ci.org/OlegIlyenko/graphql-gateway)
+
 WIP
 
 ## License
