@@ -27,9 +27,9 @@ object Server extends App with Logging {
 
     val schemaProvider =
       if (config.watch.enabled)
-        new ReloadableSchemaProvider(config, gatewayMaterializer)
+        new ReloadableSchemaProvider(config, client, gatewayMaterializer)
       else
-        new StaticSchemaProvider(config, gatewayMaterializer)
+        new StaticSchemaProvider(config, client, gatewayMaterializer)
 
     schemaProvider.schemaInfo // trigger initial schema load at startup
 

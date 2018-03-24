@@ -6,6 +6,7 @@ import akka.actor.ActorSystem
 import better.files.File
 import sangria.gateway.AppConfig
 import sangria.gateway.file.FileMonitorActor
+import sangria.gateway.http.client.HttpClient
 import sangria.gateway.schema.mat.{GatewayContext, GatewayMaterializer}
 import sangria.gateway.util.Logging
 
@@ -13,8 +14,8 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 // TODO: on a timer reload all external schemas and check for changes
-class ReloadableSchemaProvider(config: AppConfig, mat: GatewayMaterializer)(implicit system: ActorSystem, ec: ExecutionContext) extends SchemaProvider[GatewayContext, Any] with Logging {
-  val loader = new SchemaLoader(config, mat)
+class ReloadableSchemaProvider(config: AppConfig, client: HttpClient, mat: GatewayMaterializer)(implicit system: ActorSystem, ec: ExecutionContext) extends SchemaProvider[GatewayContext, Any] with Logging {
+  val loader = new SchemaLoader(config, client, mat)
   val schemaRef = new AtomicReference[Option[SchemaInfo[GatewayContext, Any]]](None)
 
   system.actorOf(FileMonitorActor.props(config.watch.allFiles, config.watch.threshold, config.watch.allGlobs, reloadSchema))

@@ -6,6 +6,7 @@ import sangria.execution.Executor
 import sangria.execution.deferred.DeferredResolver
 import sangria.gateway.AppConfig
 import sangria.gateway.file.FileUtil
+import sangria.gateway.http.client.HttpClient
 import sangria.gateway.schema.mat.{GatewayContext, GatewayMaterializer}
 import sangria.gateway.util.Logging
 import sangria.parser.QueryParser
@@ -16,7 +17,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
-class SchemaLoader(config: AppConfig, mat: GatewayMaterializer)(implicit ec: ExecutionContext) extends Logging {
+class SchemaLoader(config: AppConfig, client: HttpClient, mat: GatewayMaterializer)(implicit ec: ExecutionContext) extends Logging {
   def loadSchema: Future[Option[SchemaInfo[GatewayContext, Any]]] = {
     val files = FileUtil.loadFiles(config.watch.allFiles, config.watch.allGlobs)
 
@@ -41,7 +42,7 @@ class SchemaLoader(config: AppConfig, mat: GatewayMaterializer)(implicit ec: Exe
         try {
           val info =
             for {
-              ctx ← mat.loadContext(document)
+              ctx ← GatewayContext.loadContext(client, document)
               schema = Schema.buildFromAst(document, mat.schemaBuilder(ctx).validateSchemaWithException(document))
               intro ← executeIntrospection(schema, ctx)
             } yield Some(SchemaInfo(

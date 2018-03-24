@@ -31,6 +31,7 @@ libraryDependencies ++= Seq(
   "com.jayway.jsonpath" % "json-path" % "2.3.0",
 
   "com.iheart" %% "ficus" % "1.4.3",
+  "com.github.javafaker" % "javafaker" % "0.14",
 
   "org.slf4j" % "slf4j-api" % "1.7.25",
   "ch.qos.logback" % "logback-classic" % "1.2.3",
