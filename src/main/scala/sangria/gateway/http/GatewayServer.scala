@@ -1,10 +1,10 @@
 package sangria.gateway.http
 
 import language.postfixOps
+
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
-import com.typesafe.config.ConfigFactory
 import sangria.gateway.AppConfig
 import sangria.gateway.http.client.AkkaHttpClient
 import sangria.gateway.schema.materializer.GatewayMaterializer

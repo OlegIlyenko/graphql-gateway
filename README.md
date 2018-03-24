@@ -7,12 +7,22 @@
 Schema definition is based on [GraphQL SDL](https://github.com/facebook/graphql/pull/90). SDL syntax allows you to define full GraphQL 
 schema with interfaces, types, enums etc. In order to provide resolution logic for the fields, you can use directives described below. 
 Directives will define how fields will behave. By default (if no directive is provided), field resolve function will treat a contextual 
-value as a JSON object and will return it's property with the same name. (check out an [example schema](https://github.com/OlegIlyenko/graphql-gateway/blob/master/testSchema.graphql))
+value as a JSON object and will return its property with the same name. (check out an [example schema](https://github.com/OlegIlyenko/graphql-gateway/blob/master/testSchema.graphql))
 
 ### Supported SDL Directives
 
 ```graphql
-directive @httpGet(url: String!, headers: ObjectOrList, query: ObjectOrList, forAll: String) on FIELD_DEFINITION
+directive @httpGet(url: String!, headers: [Header!], query: [QueryParam!], forAll: String) on FIELD_DEFINITION
+
+input Header {
+  name: String!
+  value: String!
+}
+
+input QueryParam {
+  name: String!
+  value: String!
+}
 ```
 
 Provides a way to resolve the field with a result of a GET HTTP request.  
@@ -20,8 +30,8 @@ Provides a way to resolve the field with a result of a GET HTTP request.
 Supports following arguments:
 
 * `url` - the URL of an HTTP request
-* `headers` - headers that should be sent with the request. The value can be either an input object (e.g `{Authorization: "Bearer FOOBARBAZ"}`) or a list with name-value pairs (e.g. `[{name: "Authorization", value: "Bearer FOOBARBAZ"}]`)
-* `query` - query string parameters that should be sent with the request. The value can be either an input object (e.g `{limit: 10, offset: 0}`) or a list with name-value pairs (e.g. `[{name: "page-number", value: "1"}]`)
+* `headers` - headers that should be sent with the request (e.g. `[{name: "Authorization", value: "Bearer FOOBARBAZ"}]`)
+* `query` - query string parameters that should be sent with the request (e.g. `[{name: "page-number", value: "1"}]`)
 * `forAll` - A [JSON Path](http://goessner.net/articles/JsonPath/) expression. For every element, returned by this expression executed against current context value, a separate HTTP request would be sent. An `elem` placeholder scope may be used in combination with this argument.
 
 `url`, `headers` and `query` may contain the placeholders which are described below. `value` directive may be used in combination with `httpGet` - it will extract part of the relevant JSON out of the HTTP response.
