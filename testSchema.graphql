@@ -1,0 +1,53 @@
+# It's an example schema:
+#
+# * Proxies some endpoints from the http://swapi.co
+# * Merges and delegates execution for 2 GraphQL external GraphQL API
+
+schema
+  @includeGraphQL(schemas: [{
+    name: "starWars"
+    url: "http://try.sangria-graphql.org/graphql"
+  }, {
+    name: "universe"
+    url: "https://www.universe.com/graphql/beta"
+  }]) {
+
+  query: Query
+}
+
+"""
+The root query type.
+"""
+type Query
+  @include(fields: [
+    {schema: "starWars", type: "Query"}
+    {schema: "universe", type: "Query"}
+  ]) {
+
+	"A character from the StarWars (REST API)"
+  person(id: Int!): Person
+  	@httpGet(url: "https://swapi.co/api/people/${arg.id}/")
+
+  "A list of characters from the StarWars (REST API)"
+  people(page: Int): [Person]
+  	@httpGet(
+  	  url: "http://swapi.co/api/people"
+  	  query: {name: "page", value: "${arg.page}"})
+  	@value(name: "results")
+}
+
+type Film {
+  title: String
+}
+
+type Person {
+  name: String
+  size: Int @value(name: "height")
+  homeworld: Planet @httpGet(url: "${value.homeworld}")
+  films: [Film] @httpGet(forAll: "$.films", url: "${elem.$}")
+}
+
+"A planet from the StarWars universe"
+type Planet {
+  name: String
+}
