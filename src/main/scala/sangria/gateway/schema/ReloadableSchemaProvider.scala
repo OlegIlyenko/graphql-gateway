@@ -7,7 +7,7 @@ import better.files.File
 import sangria.gateway.AppConfig
 import sangria.gateway.file.FileMonitorActor
 import sangria.gateway.http.client.HttpClient
-import sangria.gateway.schema.mat.{GatewayContext, GatewayMaterializer}
+import sangria.gateway.schema.materializer.{GatewayContext, GatewayMaterializer}
 import sangria.gateway.util.Logging
 
 import scala.concurrent.{ExecutionContext, Future}

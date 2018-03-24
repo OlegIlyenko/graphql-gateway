@@ -1,12 +1,12 @@
-package sangria.gateway.schema.mat
+package sangria.gateway.schema.materializer
 
 import language.existentials
-
 import io.circe.Json
 import io.circe.optics.JsonPath.root
 import sangria.ast
 import sangria.gateway.http.client.HttpClient
 import sangria.gateway.json.CirceJsonPath
+import sangria.gateway.schema.materializer.directive.{BasicDirectiveProvider, GraphQLDirectiveProvider}
 import sangria.gateway.util.Logging
 import sangria.schema._
 import sangria.schema.ResolverBasedAstSchemaBuilder.resolveDirectives
@@ -79,8 +79,6 @@ case class GatewayContext(client: HttpClient, vars: Json, graphqlIncludes: Vecto
 }
 
 object GatewayContext extends Logging {
-  import GatewayMaterializer._
-  
   def parseJson(resp: HttpClient.HttpResponse)(implicit ec: ExecutionContext) =
     if (resp.isSuccessful)
       resp.asString.map(s ⇒ {
@@ -97,8 +95,8 @@ object GatewayContext extends Logging {
 
   def rootValue(schemaAst: ast.Document) = {
     val values = resolveDirectives(schemaAst,
-      GenericDirectiveResolver(Dirs.JsonConst, rootValueLoc,
-        c ⇒ Some(io.circe.parser.parse(c arg Args.JsonValue).fold(throw _, identity))),
+      GenericDirectiveResolver(BasicDirectiveProvider.Dirs.JsonConst, rootValueLoc,
+        c ⇒ Some(io.circe.parser.parse(c arg BasicDirectiveProvider.Args.JsonValue).fold(throw _, identity))),
       GenericDynamicDirectiveResolver[Json, Json]("const", rootValueLoc,
         c ⇒ c.args.get("value")))
 
@@ -109,8 +107,8 @@ object GatewayContext extends Logging {
 
   def graphqlIncludes(schemaAst: ast.Document) =
     resolveDirectives(schemaAst,
-      GenericDirectiveResolver(Dirs.IncludeGraphQL, resolve =
-          c ⇒ Some(c.arg(Args.Schemas).map(s ⇒ GraphQLInclude(s("url").asInstanceOf[String], s("name").asInstanceOf[String]))))).flatten
+      GenericDirectiveResolver(GraphQLDirectiveProvider.Dirs.IncludeGraphQL, resolve =
+          c ⇒ Some(c.arg(GraphQLDirectiveProvider.Args.Schemas).map(s ⇒ GraphQLInclude(s("url").asInstanceOf[String], s("name").asInstanceOf[String]))))).flatten
 
   def loadIncludedSchemas(client: HttpClient, includes: Vector[GraphQLInclude])(implicit ec: ExecutionContext): Future[Vector[GraphQLIncludedSchema]] = {
     val loaded =
@@ -157,4 +155,15 @@ object GatewayContext extends Logging {
       case _ ⇒ None
     }
   }
+}
+
+case class GraphQLInclude(url: String, name: String)
+case class GraphQLIncludedSchema(include: GraphQLInclude, schema: Schema[_, _]) extends MatOrigin {
+  private val rootTypeNames = Set(schema.query.name) ++ schema.mutation.map(_.name).toSet ++ schema.subscription.map(_.name).toSet
+
+  val types = schema.allTypes.values
+      .filterNot(t ⇒ Schema.isBuiltInType(t.name) || rootTypeNames.contains(t.name)).toVector
+      .map(MaterializedType(this, _))
+
+  def description = s"included schema '${include.name}'"
 }

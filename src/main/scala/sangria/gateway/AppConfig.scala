@@ -36,7 +36,9 @@ case class AppConfig(
   graphiql: Boolean,
   slowLog: SlowLogConfig,
   watch: WatchConfig,
-  limit: LimitConfig)
+  limit: LimitConfig,
+  includeDirectives: Option[Seq[String]],
+  excludeDirectives: Option[Seq[String]])
 
 object AppConfig {
   def load(config: Config): AppConfig = config.as[AppConfig]

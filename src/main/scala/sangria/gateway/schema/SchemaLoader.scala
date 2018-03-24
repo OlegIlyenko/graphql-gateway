@@ -7,7 +7,7 @@ import sangria.execution.deferred.DeferredResolver
 import sangria.gateway.AppConfig
 import sangria.gateway.file.FileUtil
 import sangria.gateway.http.client.HttpClient
-import sangria.gateway.schema.mat.{GatewayContext, GatewayMaterializer}
+import sangria.gateway.schema.materializer.{GatewayContext, GatewayMaterializer}
 import sangria.gateway.util.Logging
 import sangria.parser.QueryParser
 import sangria.schema.Schema
