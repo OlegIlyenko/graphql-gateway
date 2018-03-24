@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/OlegIlyenko/graphql-gateway.svg?branch=master)](https://travis-ci.org/OlegIlyenko/graphql-gateway)
 
-Project is still at very early WIP stage.
+Project is a POC and at very early experimental/WIP stage!
 
 Schema definition is based on [GraphQL SDL](https://github.com/facebook/graphql/pull/90). SDL syntax allows you to define full GraphQL 
 schema with interfaces, types, enums etc. In order to provide resolution logic for the fields, you can use directives described below. 
