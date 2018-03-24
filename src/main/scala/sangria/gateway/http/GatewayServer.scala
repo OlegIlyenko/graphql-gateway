@@ -30,7 +30,7 @@ class GatewayServer extends Logging {
 
   def startup(config: AppConfig) =
     try {
-      val gatewayMaterializer = new GatewayMaterializer(client, filterDirectives(config, directiveProviders))
+      val gatewayMaterializer = new GatewayMaterializer(filterDirectives(config, directiveProviders))
 
       val schemaProvider =
         if (config.watch.enabled)
@@ -45,15 +45,24 @@ class GatewayServer extends Logging {
       Http().bindAndHandle(routing.route, config.bindHost, config.port).andThen {
         case Success(_) ⇒
           logger.info(s"Server started on ${config.bindHost}:${config.port}")
+
           if (config.watch.enabled)
             logger.info(s"Watching files at following path: ${config.watch.allFiles.mkString(", ")}. Looking for files: ${config.watch.allGlobs.mkString(", ")}.")
-        case Failure(_) ⇒ system.terminate()
+
+        case Failure(_) ⇒
+          shutdown()
       }
     } catch {
       case NonFatal(error) ⇒
         logger.error("Error during server startup", error)
-        system.terminate()
+
+        shutdown()
     }
+
+  def shutdown(): Unit = {
+    logger.info("Shutting down server")
+    system.terminate()
+  }
 
   private def filterDirectives(config: AppConfig, providers: Map[String, DirectiveProvider]) = {
     val includes = config.includeDirectives.fold(Set.empty[String])(_.toSet)

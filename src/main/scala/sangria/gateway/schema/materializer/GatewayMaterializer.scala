@@ -2,20 +2,15 @@ package sangria.gateway.schema.materializer
 
 import language.existentials
 import sangria.ast
-import sangria.gateway.http.client.HttpClient
-import sangria.gateway.json.CirceJsonPath
 import sangria.schema._
 import sangria.marshalling.circe._
 import sangria.marshalling.queryAst._
-import sangria.schema.ResolverBasedAstSchemaBuilder.extractValue
 import io.circe._
-import io.circe.optics.JsonPath._
-import sangria.gateway.schema.materializer.GatewayContext._
 import sangria.gateway.schema.materializer.directive.DirectiveProvider
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
-class GatewayMaterializer(client: HttpClient, directiveProviders: Seq[DirectiveProvider])(implicit ec: ExecutionContext) {
+class GatewayMaterializer(directiveProviders: Seq[DirectiveProvider])(implicit ec: ExecutionContext) {
   def commonResolvers(ctx: GatewayContext) = Seq[AstSchemaResolver[GatewayContext]](
     ExistingFieldResolver {
       case (o: GraphQLIncludedSchema, _, f) if ctx.graphqlIncludes.exists(_.include.name == o.include.name) && f.astDirectives.exists(_.name == "delegate") ⇒

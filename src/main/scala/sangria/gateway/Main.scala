@@ -8,4 +8,8 @@ object Main extends App {
   val server = new GatewayServer
 
   server.startup(config)
+
+  Runtime.getRuntime.addShutdownHook(new Thread {
+    override def run(): Unit = server.shutdown()
+  })
 }
