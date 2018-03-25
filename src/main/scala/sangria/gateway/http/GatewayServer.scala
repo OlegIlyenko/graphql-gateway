@@ -65,18 +65,18 @@ class GatewayServer extends Logging {
   }
 
   private def filterDirectives(config: AppConfig, providers: Map[String, DirectiveProvider]) = {
-    val includes = config.includeDirectives.fold(Set.empty[String])(_.toSet)
-    val excludes = config.includeDirectives.fold(Set.empty[String])(_.toSet)
+    val includes = config.allIncludeDirectives.fold(Set.empty[String])(_.toSet)
+    val excludes = config.allExcludeDirectives.fold(Set.empty[String])(_.toSet)
     val initial = providers.toVector
 
     val withIncludes =
-      if (config.includeDirectives.nonEmpty)
+      if (config.allIncludeDirectives.nonEmpty)
         initial.filter(dp ⇒ includes contains dp._1)
       else
         initial
 
     val withExcludes =
-      if (config.excludeDirectives.nonEmpty)
+      if (config.allExcludeDirectives.nonEmpty)
         withIncludes.filterNot(dp ⇒ excludes contains dp._1)
       else
         withIncludes

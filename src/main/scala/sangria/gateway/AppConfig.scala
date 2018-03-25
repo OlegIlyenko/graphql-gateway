@@ -39,12 +39,17 @@ case class AppConfig(
   watch: WatchConfig,
   limit: LimitConfig,
   includeDirectives: Option[Seq[String]],
-  excludeDirectives: Option[Seq[String]]
+  includeDirectivesStr: Option[String],
+  excludeDirectives: Option[Seq[String]],
+  excludeDirectivesStr: Option[String]
 ) {
+  lazy val allIncludeDirectives = includeDirectivesStr.map(_.split("\\s*,\\s*").toSeq) orElse includeDirectives
+  lazy val allExcludeDirectives = excludeDirectivesStr.map(_.split("\\s*,\\s*").toSeq) orElse excludeDirectives
+
   def isEnabled(directivesName: String) =
-    !excludeDirectives.exists(_.contains(directivesName)) && (
-      includeDirectives.isEmpty ||
-      includeDirectives.exists(_.contains(directivesName)))
+    !allExcludeDirectives.exists(_.contains(directivesName)) && (
+      allIncludeDirectives.isEmpty ||
+      allIncludeDirectives.exists(_.contains(directivesName)))
 }
 
 object AppConfig {
