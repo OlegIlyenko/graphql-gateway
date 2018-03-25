@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <configuration>
+  <conversionRule conversionWord="highlight"
+                  converterClass="sangria.gateway.util.LogColors" />
+
   <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
     <encoder>
-      <pattern>%d{HH:mm:ss.SSS} %-5level %logger{5} - %msg%n</pattern>
+      <pattern>%cyan(%d{HH:mm:ss.SSS}) %highlight(%-5level) %cyan(%logger{5}) - %msg%n</pattern>
     </encoder>
   </appender>
 
