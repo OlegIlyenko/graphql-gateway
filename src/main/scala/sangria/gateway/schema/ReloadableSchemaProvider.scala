@@ -3,6 +3,8 @@ package sangria.gateway.schema
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.ActorSystem
+import akka.stream.{Materializer, OverflowStrategy}
+import akka.stream.scaladsl.{BroadcastHub, Keep, RunnableGraph, Source}
 import better.files.File
 import sangria.gateway.AppConfig
 import sangria.gateway.file.FileMonitorActor
@@ -14,11 +16,17 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 // TODO: on a timer reload all external schemas and check for changes
-class ReloadableSchemaProvider(config: AppConfig, client: HttpClient, mat: GatewayMaterializer)(implicit system: ActorSystem, ec: ExecutionContext) extends SchemaProvider[GatewayContext, Any] with Logging {
+class ReloadableSchemaProvider(config: AppConfig, client: HttpClient, mat: GatewayMaterializer)(implicit system: ActorSystem, ec: ExecutionContext, amat: Materializer) extends SchemaProvider[GatewayContext, Any] with Logging {
   val loader = new SchemaLoader(config, client, mat)
   val schemaRef = new AtomicReference[Option[SchemaInfo[GatewayContext, Any]]](None)
 
   system.actorOf(FileMonitorActor.props(config.watch.allFiles, config.watch.threshold, config.watch.allGlobs, reloadSchema))
+
+  private val producer = Source.actorRef[Boolean](100, OverflowStrategy.dropTail)
+  private val runnableGraph = producer.toMat(BroadcastHub.sink(bufferSize = 256))(Keep.both)
+  private val (changesPublisher, changesSource) = runnableGraph.run()
+
+  val schemaChanges = Some(changesSource)
 
   def schemaInfo =
     schemaRef.get() match {
@@ -44,6 +52,7 @@ class ReloadableSchemaProvider(config: AppConfig, client: HttpClient, mat: Gatew
               else
                 " without any changes."
 
+            changesPublisher ! true
             logger.info(s"Schema successfully reloaded$renderedChanges")
           case None ⇒
             logger.info(s"Schema successfully loaded from files:\n${newSchema.files.map(f ⇒ "  * " + f).mkString("\n")}")

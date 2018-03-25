@@ -23,6 +23,8 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-http" % "10.1.0",
   "com.typesafe.akka" %% "akka-slf4j" % "2.5.11",
   "de.heikoseeberger" %% "akka-http-circe" % "1.20.0",
+  "de.heikoseeberger" %% "akka-sse" % "3.0.0",
+
   "com.github.pathikrit"  %% "better-files-akka"  % "3.4.0",
 
   "io.circe" %%	"circe-core" % circeVersion,

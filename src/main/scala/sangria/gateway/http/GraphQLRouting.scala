@@ -3,12 +3,14 @@ package sangria.gateway.http
 import akka.http.scaladsl.model.StatusCodes._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.model.headers._
-import akka.http.scaladsl.server.{ExceptionHandler ⇒ _, _}
+import akka.http.scaladsl.server.{ExceptionHandler => _, _}
 import de.heikoseeberger.akkahttpcirce.ErrorAccumulatingCirceSupport.{jsonMarshaller, jsonUnmarshaller}
-import GraphQLRequestUnmarshaller.{explicitlyAccepts, _}
+import sangria.gateway.http.GraphQLRequestUnmarshaller.{explicitlyAccepts, _}
 import akka.http.scaladsl.marshalling.{ToResponseMarshallable => TRM}
 import akka.http.scaladsl.model.HttpEntity
 import akka.http.scaladsl.model.MediaTypes.`text/html`
+import de.heikoseeberger.akkasse.scaladsl.model._
+import de.heikoseeberger.akkasse.scaladsl.marshalling.EventStreamMarshalling._
 import io.circe._
 import io.circe.optics.JsonPath._
 import io.circe.parser._
@@ -70,6 +72,14 @@ class GraphQLRouting[Ctx, Val](config: AppConfig, schemaProvider: SchemaProvider
             }
           }
         }
+      }
+    } ~
+    (get & path("schema-updates")) {
+      schemaProvider.schemaChanges match {
+        case Some(source) ⇒
+          complete(source.filter(identity).map(_ ⇒ ServerSentEvent("changed")))
+        case None ⇒
+          complete(200 → "Schema reloading is disabled")
       }
     } ~
     (get & path("schema.json")) {

@@ -10,4 +10,5 @@ class StaticSchemaProvider(config: AppConfig, client: HttpClient, mat: GatewayMa
   val loader = new SchemaLoader(config, client, mat)
   
   val schemaInfo = loader.loadSchema
+  val schemaChanges = None
 }

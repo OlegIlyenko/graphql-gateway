@@ -1,5 +1,7 @@
 package sangria.gateway.schema
 
+import akka.NotUsed
+import akka.stream.scaladsl.Source
 import better.files.File
 import io.circe.Json
 import sangria.execution.{Executor, Middleware}
@@ -10,6 +12,7 @@ import scala.concurrent.{Await, Future}
 
 trait SchemaProvider[Ctx, Val] {
   def schemaInfo: Future[Option[SchemaInfo[Ctx, Val]]]
+  def schemaChanges: Option[Source[Boolean, NotUsed]]
 }
 
 case class SchemaInfo[Ctx, Val](
