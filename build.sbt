@@ -45,6 +45,8 @@ libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "3.0.5" % Test
 )
 
+resolvers += "Sonatype snapshots" at "https://oss.sonatype.org/content/repositories/snapshots/"
+
 // nice *magenta* prompt!
 
 shellPrompt in ThisBuild := { state ⇒
