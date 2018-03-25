@@ -644,6 +644,24 @@ sbt ~reStart
 
 you can run queries interactively using [GraphiQL](https://github.com/graphql/graphiql) by opening [http://localhost:8080](http://localhost:8080) in a browser or query the `/graphql` endpoint directly.
 
+**Publishing**
+
+The docker publishing is done with sbt-native-packager plugin:
+
+```bash
+sbt docker:publishLocal
+
+# or
+
+sbt docker:publish
+```
+
+Fat JAR is created with sbt-assembly plugin:
+
+```bash
+sbt assembly
+```
+
 ## License
 
 **graphql-gateway** is licensed under [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0).
