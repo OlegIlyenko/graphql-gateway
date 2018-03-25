@@ -17,4 +17,6 @@ dockerCommands := Seq(
 
 dockerCommands += Cmd("ENV", "WATCH_PATHS=/schema")
 
+assemblyJarName := "graphql-gateway.jar"
+
 enablePlugins(JavaServerAppPackaging, DockerPlugin)
