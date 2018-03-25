@@ -10,7 +10,7 @@ scalaVersion := "2.12.4"
 
 scalacOptions ++= Seq("-deprecation", "-feature")
 
-mainClass := Some("sangria.gateway.http.GatewayServer")
+mainClass in Compile := Some("sangria.gateway.Main")
 
 val sangriaVersion = "1.4.0"
 val circeVersion = "0.9.2"
