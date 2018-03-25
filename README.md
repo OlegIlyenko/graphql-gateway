@@ -4,12 +4,32 @@
 
 ⚠️ **Project is a POC and at very early experimental/WIP stage!** ⚠️
 
+### Getting Started
+
+You can use graphql-gateway as a docker container:
+
+```bash
+docker run -it -p 8080:8080 -v $(pwd):/schema tenshi/graphql-gateway
+```
+
+For you convenience, you can define an alias for it and put it in your `.bashrc`:
+
+```bash
+alias graphql-gateway='docker run -it -p 8080:8080 -v $(pwd):/schema tenshi/graphql-gateway'
+```
+
+After this is done, you can start the sever just by executing `graphql-gateway` - 
+the server will automatically read the schema from all `*.graphql` files in a current 
+working directory and watch them for changes.
+
+There is also a fat JAR available on release notes: [graphql-gateway.jar](https://github.com/OlegIlyenko/graphql-gateway/releases/download/v0.1/graphql-gateway.jar).
+
+### Supported SDL Directives
+
 Schema definition is based on [GraphQL SDL](https://github.com/facebook/graphql/pull/90). SDL syntax allows you to define full GraphQL 
 schema with interfaces, types, enums etc. In order to provide resolution logic for the fields, you can use directives described below. 
 Directives will define how fields will behave. By default (if no directive is provided), field resolve function will treat a contextual 
 value as a JSON object and will return its property with the same name. (check out an [example schema](https://github.com/OlegIlyenko/graphql-gateway/blob/master/testSchema.graphql))
-
-### Supported SDL Directives
 
 #### `@httpGet`
 
