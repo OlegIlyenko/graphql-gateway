@@ -28,6 +28,7 @@ case class LimitConfig(
 case class SlowLogConfig(
   enabled: Boolean,
   threshold: FiniteDuration,
+  extension: Boolean,
   apolloTracing: Boolean)
 
 case class AppConfig(
@@ -38,7 +39,13 @@ case class AppConfig(
   watch: WatchConfig,
   limit: LimitConfig,
   includeDirectives: Option[Seq[String]],
-  excludeDirectives: Option[Seq[String]])
+  excludeDirectives: Option[Seq[String]]
+) {
+  def isEnabled(directivesName: String) =
+    !excludeDirectives.exists(_.contains(directivesName)) && (
+      includeDirectives.isEmpty ||
+      includeDirectives.exists(_.contains(directivesName)))
+}
 
 object AppConfig {
   def load(config: Config): AppConfig = config.as[AppConfig]

@@ -103,12 +103,19 @@ class GraphQLRouting[Ctx, Val](config: AppConfig, schemaProvider: SchemaProvider
     baseReducers ++ List(complexityRejector, depthRejector)
   }
 
-  private val middleware =
-    if (config.slowLog.enabled)
-      SlowLog(logger.underlying, config.slowLog.threshold, config.slowLog.apolloTracing) :: Nil
-    else
-      Nil
+  private val middleware = {
+    val withSlowLog =
+      if (config.slowLog.enabled)
+        SlowLog(logger.underlying, config.slowLog.threshold, config.slowLog.extension) :: Nil
+      else
+        Nil
 
+    if (config.slowLog.apolloTracing)
+      SlowLog.apolloTracing :: withSlowLog
+    else
+      withSlowLog
+  }
+  
   def executeGraphQL(query: Document, operationName: Option[String], variables: Json) =
     complete(schemaProvider.schemaInfo.flatMap {
       case Some(schemaInfo) ⇒

@@ -1,14 +1,13 @@
 package sangria.gateway.http
 
 import language.postfixOps
-
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import sangria.gateway.AppConfig
 import sangria.gateway.http.client.AkkaHttpClient
 import sangria.gateway.schema.materializer.GatewayMaterializer
-import sangria.gateway.schema.materializer.directive.{BasicDirectiveProvider, DirectiveProvider, GraphQLDirectiveProvider, HttpDirectiveProvider}
+import sangria.gateway.schema.materializer.directive._
 import sangria.gateway.schema.{ReloadableSchemaProvider, StaticSchemaProvider}
 import sangria.gateway.util.Logging
 
@@ -26,6 +25,7 @@ class GatewayServer extends Logging {
   val directiveProviders = Map(
     "http" → new HttpDirectiveProvider(client),
     "graphql" → new GraphQLDirectiveProvider,
+    "faker" → new FakerDirectiveProvider,
     "basic" → new BasicDirectiveProvider)
 
   def startup(config: AppConfig) =

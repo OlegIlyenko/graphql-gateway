@@ -42,7 +42,7 @@ class SchemaLoader(config: AppConfig, client: HttpClient, mat: GatewayMaterializ
         try {
           val info =
             for {
-              ctx ← GatewayContext.loadContext(client, document)
+              ctx ← GatewayContext.loadContext(config, client, document)
               schema = Schema.buildFromAst(document, mat.schemaBuilder(ctx).validateSchemaWithException(document))
               intro ← executeIntrospection(schema, ctx)
             } yield Some(SchemaInfo(

@@ -32,6 +32,7 @@ libraryDependencies ++= Seq(
 
   "com.iheart" %% "ficus" % "1.4.3",
   "com.github.javafaker" % "javafaker" % "0.14",
+  "info.henix" %% "ssoup" % "0.5",
 
   "org.slf4j" % "slf4j-api" % "1.7.25",
   "ch.qos.logback" % "logback-classic" % "1.2.3",

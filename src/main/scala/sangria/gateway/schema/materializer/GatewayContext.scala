@@ -1,12 +1,17 @@
 package sangria.gateway.schema.materializer
 
+import java.util.{Locale, Random}
+
+import com.github.javafaker.Faker
+
 import language.existentials
 import io.circe.Json
 import io.circe.optics.JsonPath.root
 import sangria.ast
+import sangria.gateway.AppConfig
 import sangria.gateway.http.client.HttpClient
 import sangria.gateway.json.CirceJsonPath
-import sangria.gateway.schema.materializer.directive.{BasicDirectiveProvider, GraphQLDirectiveProvider}
+import sangria.gateway.schema.materializer.directive.{BasicDirectiveProvider, FakerDirectiveProvider, GraphQLDirectiveProvider}
 import sangria.gateway.util.Logging
 import sangria.schema._
 import sangria.schema.ResolverBasedAstSchemaBuilder.resolveDirectives
@@ -16,7 +21,7 @@ import sangria.marshalling.MarshallingUtil._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-case class GatewayContext(client: HttpClient, vars: Json, graphqlIncludes: Vector[GraphQLIncludedSchema]) {
+case class GatewayContext(client: HttpClient, rnd: Option[Random], faker: Option[Faker], vars: Json, graphqlIncludes: Vector[GraphQLIncludedSchema]) {
   import GatewayContext._
   
   val allTypes = graphqlIncludes.flatMap(_.types)
@@ -110,6 +115,14 @@ object GatewayContext extends Logging {
       GenericDirectiveResolver(GraphQLDirectiveProvider.Dirs.IncludeGraphQL, resolve =
           c ⇒ Some(c.arg(GraphQLDirectiveProvider.Args.Schemas).map(s ⇒ GraphQLInclude(s("url").asInstanceOf[String], s("name").asInstanceOf[String]))))).flatten
 
+  def fakerConfig(schemaAst: ast.Document) = {
+    import sangria.gateway.schema.materializer.directive.FakerDirectiveProvider._
+
+    resolveDirectives(schemaAst,
+      GenericDirectiveResolver(Dirs.FakeConfig,
+        resolve = c ⇒ Some(c.arg(Args.Locale).map(Locale.forLanguageTag) → c.arg(Args.Seed)))).headOption.getOrElse(None → None)
+  }
+
   def loadIncludedSchemas(client: HttpClient, includes: Vector[GraphQLInclude])(implicit ec: ExecutionContext): Future[Vector[GraphQLIncludedSchema]] = {
     val loaded =
       includes.map { include ⇒
@@ -122,11 +135,19 @@ object GatewayContext extends Logging {
     Future.sequence(loaded)
   }
 
-  def loadContext(client: HttpClient, schemaAst: ast.Document)(implicit ec: ExecutionContext): Future[GatewayContext] = {
+  def loadContext(config: AppConfig, client: HttpClient, schemaAst: ast.Document)(implicit ec: ExecutionContext): Future[GatewayContext] = {
     val includes = graphqlIncludes(schemaAst)
     val vars = rootValue(schemaAst)
+    val (fakerLocale, fakerSeed) = fakerConfig(schemaAst)
 
-    loadIncludedSchemas(client, includes).map(GatewayContext(client, vars, _))
+    val (rnd, faker) =
+      if (config isEnabled "faker") {
+        val rnd = fakerSeed.fold(new Random(System.currentTimeMillis()))(s ⇒ new Random(s.toLong))
+        
+        Some(rnd) → Some(fakerLocale.fold(new Faker(rnd))(l ⇒ new Faker(l, rnd)))
+      } else None → None
+
+    loadIncludedSchemas(client, includes).map(GatewayContext(client, rnd, faker, vars, _))
   }
 
   def namedType(tpe: OutputType[_]): OutputType[_] = tpe match {

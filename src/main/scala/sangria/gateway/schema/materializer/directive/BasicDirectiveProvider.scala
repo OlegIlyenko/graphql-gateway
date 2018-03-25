@@ -2,9 +2,10 @@ package sangria.gateway.schema.materializer.directive
 
 import io.circe.Json
 import sangria.gateway.json.CirceJsonPath
+import sangria.gateway.schema.CustomScalars
 import sangria.gateway.schema.materializer.GatewayContext
 import sangria.gateway.schema.materializer.GatewayContext._
-import sangria.schema.ResolverBasedAstSchemaBuilder.extractValue
+import sangria.schema.ResolverBasedAstSchemaBuilder.{extractFieldValue, extractValue}
 import sangria.schema._
 import sangria.marshalling.circe._
 
@@ -14,6 +15,8 @@ class BasicDirectiveProvider(implicit ec: ExecutionContext) extends DirectivePro
   import BasicDirectiveProvider._
 
   def resolvers(ctx: GatewayContext) = Seq(
+    AdditionalTypes(CustomScalars.DateTimeType),
+
     DirectiveResolver(Dirs.Context, c ⇒ c.withArgs(Args.NameOpt, Args.Path) { (name, path) ⇒
       name
         .map(n ⇒ extractValue(c.ctx.field.fieldType, c.ctx.ctx.vars.get(n)))
@@ -45,6 +48,10 @@ class BasicDirectiveProvider(implicit ec: ExecutionContext) extends DirectivePro
     DirectiveResolver(Dirs.JsonConst, c ⇒
       extractValue(c.ctx.field.fieldType,
         Some(io.circe.parser.parse(c.ctx.ctx.fillPlaceholders(c.ctx, c arg Args.JsonValue)).fold(throw _, identity)))))
+
+  override val anyResolver = Some({
+    case c if c.value.isInstanceOf[Json] ⇒ ResolverBasedAstSchemaBuilder.extractFieldValue[GatewayContext, Json](c)
+  })
 }
 
 object BasicDirectiveProvider {
