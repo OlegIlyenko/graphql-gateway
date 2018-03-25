@@ -18,6 +18,7 @@ import sangria.ast.Document
 import sangria.execution._
 import sangria.gateway.AppConfig
 import sangria.gateway.schema.SchemaProvider
+import sangria.gateway.schema.materializer.GatewayContext
 import sangria.gateway.util.Logging
 import sangria.parser.{QueryParser, SyntaxError}
 import sangria.marshalling.circe._
@@ -27,7 +28,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
 
-class GraphQLRouting[Ctx, Val](config: AppConfig, schemaProvider: SchemaProvider[Ctx, Val])(implicit ec: ExecutionContext) extends Logging {
+class GraphQLRouting[Val](config: AppConfig, schemaProvider: SchemaProvider[GatewayContext, Val])(implicit ec: ExecutionContext) extends Logging {
   val route: Route =
     path("graphql") {
       get {
@@ -129,11 +130,13 @@ class GraphQLRouting[Ctx, Val](config: AppConfig, schemaProvider: SchemaProvider
   def executeGraphQL(query: Document, operationName: Option[String], variables: Json) =
     complete(schemaProvider.schemaInfo.flatMap {
       case Some(schemaInfo) ⇒
-        Executor.execute(schemaInfo.schema, query, schemaInfo.ctx,
+        val actualVariables = if (variables.isNull) Json.obj() else variables
+
+        Executor.execute(schemaInfo.schema, query, schemaInfo.ctx.copy(operationName = operationName, queryVars = actualVariables),
           root = schemaInfo.value,
-          variables = if (variables.isNull) Json.obj() else variables,
+          variables = actualVariables,
           operationName = operationName,
-          queryReducers = reducers.asInstanceOf[List[QueryReducer[Ctx, _]]],
+          queryReducers = reducers.asInstanceOf[List[QueryReducer[GatewayContext, _]]],
           middleware = middleware ++ schemaInfo.middleware,
           exceptionHandler = exceptionHandler,
           deferredResolver = schemaInfo.deferredResolver)

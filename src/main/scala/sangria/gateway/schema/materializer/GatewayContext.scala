@@ -21,13 +21,18 @@ import sangria.marshalling.MarshallingUtil._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-case class GatewayContext(client: HttpClient, rnd: Option[Random], faker: Option[Faker], vars: Json, graphqlIncludes: Vector[GraphQLIncludedSchema]) {
+case class GatewayContext(client: HttpClient, rnd: Option[Random], faker: Option[Faker], vars: Json, graphqlIncludes: Vector[GraphQLIncludedSchema], operationName: Option[String] = None, queryVars: Json = Json.obj()) {
   import GatewayContext._
   
   val allTypes = graphqlIncludes.flatMap(_.types)
 
-  def request(schema: GraphQLIncludedSchema, query: ast.Document, extractName: String)(implicit ec: ExecutionContext): Future[Json] = {
-    val body = Json.obj("query" → Json.fromString(query.renderPretty))
+  def request(schema: GraphQLIncludedSchema, query: ast.Document, variables: Json, extractName: String)(implicit ec: ExecutionContext): Future[Json] = {
+    val fields = Vector("query" → Json.fromString(query.renderPretty))
+    val withVars =
+      if (variables != Json.obj()) fields :+ ("variables" → variables)
+      else fields
+
+    val body = Json.fromFields(withVars)
 
     client.request(HttpClient.Method.Post, schema.include.url, body = Some("application/json" → body.noSpaces)).flatMap(GatewayContext.parseJson).map(resp ⇒
       root.data.at(extractName).getOption(resp).flatten.get)
@@ -37,16 +42,15 @@ case class GatewayContext(client: HttpClient, rnd: Option[Random], faker: Option
     graphqlIncludes.find(_.include.name == name).toList.flatMap { s ⇒
       val tpe = s.schema.getOutputType(ast.NamedType(typeName), topLevel = true)
       val fields = tpe.toList
-          .collect {case obj: ObjectLikeType[_, _] ⇒ obj}
-          .flatMap { t ⇒
-            val fields = includeFields match  {
-              case Some(inc) ⇒ t.uniqueFields.filter(f ⇒ includeFields contains f.name)
-              case _ ⇒ t.uniqueFields
-            }
-
-            fields.asInstanceOf[Vector[Field[GatewayContext, Any]]]
+        .collect {case obj: ObjectLikeType[_, _] ⇒ obj}
+        .flatMap { t ⇒
+          val fields = includeFields match  {
+            case Some(inc) ⇒ t.uniqueFields.filter(f ⇒ includeFields contains f.name)
+            case _ ⇒ t.uniqueFields
           }
 
+          fields.asInstanceOf[Vector[Field[GatewayContext, Any]]]
+        }
 
       fields.map(f ⇒ MaterializedField(s, f.copy(astDirectives = Vector(ast.Directive("delegate", Vector.empty)))))
     }
@@ -183,8 +187,17 @@ case class GraphQLIncludedSchema(include: GraphQLInclude, schema: Schema[_, _]) 
   private val rootTypeNames = Set(schema.query.name) ++ schema.mutation.map(_.name).toSet ++ schema.subscription.map(_.name).toSet
 
   val types = schema.allTypes.values
-      .filterNot(t ⇒ Schema.isBuiltInType(t.name) || rootTypeNames.contains(t.name)).toVector
-      .map(MaterializedType(this, _))
+    .filterNot(t ⇒ Schema.isBuiltInType(t.name) || rootTypeNames.contains(t.name)).toVector
+    .map {
+      case t: ObjectType[_, _] ⇒
+        t.withInstanceCheck((value, _, tpe) ⇒ value match {
+          case json: Json ⇒ root.__typename.string.getOption(json).contains(tpe.name)
+          case _ ⇒ false
+        })
+
+      case t ⇒ t
+    }
+    .map(MaterializedType(this, _))
 
   def description = s"included schema '${include.name}'"
 }
