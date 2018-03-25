@@ -34,6 +34,8 @@ type Query
   	  url: "http://swapi.co/api/people"
   	  query: {name: "page", value: "${arg.page}"})
   	@value(name: "results")
+
+  fruits: [Fruit!]! @fake(min: 5)
 }
 
 type Film {
@@ -42,6 +44,8 @@ type Film {
 
 type Person {
   name: String
+  address: String! @fake(expr: "#{address.fullAddress}")
+  birthday: DateTime! @fake(past: true)
   size: Int @value(name: "height")
   homeworld: Planet @httpGet(url: "${value.homeworld}")
   films: [Film] @httpGet(forAll: "$.films", url: "${elem.$}")
@@ -50,4 +54,16 @@ type Person {
 "A planet from the StarWars universe"
 type Planet {
   name: String
+}
+
+type Fruit {
+  weight: Int!
+  description: String! @fake(expr: "#{hipster.word}")
+  color: Color!
+}
+
+enum Color {
+  RED
+  BLUE
+  MAGENTA
 }

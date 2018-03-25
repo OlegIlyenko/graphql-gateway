@@ -61,6 +61,9 @@ case class FakeValue(expr: Option[String], min: Option[Int], max: Option[Int], p
 
         (1 to size).toVector.map(_ ⇒ coerceType(ofType))
 
+      case s: ScalarAlias[_, _] ⇒
+        coerceType(s.aliasFor)
+
       case s: ScalarType[_] if s.name == StringType.name ⇒
         expr match {
           case Some(e) ⇒ faker.expression(e)
@@ -111,7 +114,10 @@ case class FakeValue(expr: Option[String], min: Option[Int], max: Option[Int], p
 
       case s: ScalarType[_] if s.name == CustomScalars.DateTimeType.name ⇒
         resolveDate
-        
+
+      case e: EnumType[_] ⇒
+        e.values(rnd.nextInt(e.values.size)).value
+
       case s: CompositeType[_] ⇒
         withoutExpr
 
