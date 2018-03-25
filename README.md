@@ -11,6 +11,8 @@ value as a JSON object and will return its property with the same name. (check o
 
 ### Supported SDL Directives
 
+#### `@httpGet`
+
 ```graphql
 directive @httpGet(url: String!, headers: [Header!], query: [QueryParam!], forAll: String) on FIELD_DEFINITION
 
@@ -36,6 +38,8 @@ Supports following arguments:
 
 `url`, `headers` and `query` may contain the placeholders which are described below. `value` directive may be used in combination with `httpGet` - it will extract part of the relevant JSON out of the HTTP response.
 
+#### `@includeGraphQL`
+
 ```graphql
 directive @includeGraphQL(schemas: [GraphQLSchemaInclude!]!) on SCHEMA
 
@@ -46,6 +50,8 @@ input GraphQLSchemaInclude {
 ```
 
 Includes external GraphQL schemas (based on GraphQL endpoint URL)
+
+#### `@include`
 
 ```graphql
 directive @include(fields: [GraphQLIncludeFields!]!) on OBJECT
@@ -63,6 +69,8 @@ input GraphQLIncludeFields {
 ```
 
 Adds fields loaded from the external GraphQL schema
+
+#### `@fake`
 
 ```graphql
 directive @fake(expr: String, min: Int, max: Int, past: Boolean, future: Boolean) on FIELD_DEFINITION 
@@ -497,11 +505,15 @@ type Query {
   * `zelda.game`
 </details>
 
+#### `@fakeConfig`
+
 ```graphql
 directive @fakeConfig(locale: String, seed: Int) on SCHEMA 
 ```
 
 Customize fake data generation    
+
+#### `@const`
 
 ```graphql
 directive @const(value: Any!) on FIELD_DEFINITION | SCHEMA
@@ -509,17 +521,23 @@ directive @const(value: Any!) on FIELD_DEFINITION | SCHEMA
             
 Provides a way to resolve a field with a constant value. `value` can be any valid GraphQL input value. It would be treated as a JSON value.
 
+#### `@jsonConst`
+
 ```graphql
 directive @jsonConst(value: String!) on FIELD_DEFINITION | SCHEMA
 ```
             
 Provides a way to resolve a field with a constant value. `value` should be a valid JSON value.
 
+#### `@arg`
+
 ```graphql
 directive @arg(name: String!) on FIELD_DEFINITION
 ```
             
 Provides a way to resolve a field with value of one of its arguments.
+
+#### `@value`
 
 ```graphql
 directive @value(name: String, path: String) on FIELD_DEFINITION
@@ -529,6 +547,8 @@ Extracts a value(s) from the context object. It supports following extractors vi
 
 * `name` - Extracts a named property value from a context JSON object
 * `path` - A [JSON Path](http://goessner.net/articles/JsonPath/) expression. It would be executed against current context JSON value.
+
+#### `@context`
 
 ```graphql
 directive @context(name: String, path: String) on FIELD_DEFINITION
