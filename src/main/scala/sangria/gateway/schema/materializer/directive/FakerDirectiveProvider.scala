@@ -3,6 +3,7 @@ package sangria.gateway.schema.materializer.directive
 import java.time.{ZoneId, ZonedDateTime}
 import java.util.concurrent.TimeUnit
 import java.util.Random
+import java.util.regex.Pattern
 
 import com.github.javafaker.Faker
 import sangria.gateway.schema.CustomScalars
@@ -49,7 +50,7 @@ object FakerDirectiveProvider {
 
 case class FakeValue(expr: Option[String], min: Option[Int], max: Option[Int], past: Option[Boolean], future: Option[Boolean], rnd: Random, faker: Faker) {
   private lazy val withoutExpr = copy(expr = None, min = None, max = None)
-
+  
   def coerce(ctx: Context[GatewayContext, _]): Action[GatewayContext, Any] = {
     def coerceType(tpe: OutputType[_]): Any = tpe match {
       case OptionType(ofType) ⇒
@@ -66,49 +67,49 @@ case class FakeValue(expr: Option[String], min: Option[Int], max: Option[Int], p
 
       case s: ScalarType[_] if s.name == StringType.name ⇒
         expr match {
-          case Some(e) ⇒ faker.expression(e)
+          case Some(e) ⇒ resolveExpr(e)
           case None ⇒ faker.lorem().paragraph()
         }
 
       case s: ScalarType[_] if s.name == IntType.name ⇒
         expr match {
-          case Some(e) ⇒ faker.expression(e).toInt
+          case Some(e) ⇒ resolveExpr(e).toInt
           case None ⇒ rnd.nextInt()
         }
 
       case s: ScalarType[_] if s.name == LongType.name ⇒
         expr match {
-          case Some(e) ⇒ faker.expression(e).toLong
+          case Some(e) ⇒ resolveExpr(e).toLong
           case None ⇒ rnd.nextLong()
         }
 
       case s: ScalarType[_] if s.name == BigIntType.name ⇒
         expr match {
-          case Some(e) ⇒ BigInt(faker.expression(e))
+          case Some(e) ⇒ BigInt(resolveExpr(e))
           case None ⇒ BigInt(rnd.nextLong())
         }
 
       case s: ScalarType[_] if s.name == BigDecimalType.name ⇒
         expr match {
-          case Some(e) ⇒ BigDecimal(faker.expression(e))
+          case Some(e) ⇒ BigDecimal(resolveExpr(e))
           case None ⇒ BigDecimal(rnd.nextDouble())
         }
 
       case s: ScalarType[_] if s.name == IDType.name ⇒
         expr match {
-          case Some(e) ⇒ faker.expression(e)
+          case Some(e) ⇒ resolveExpr(e)
           case None ⇒ "" + rnd.nextLong()
         }
 
       case s: ScalarType[_] if s.name == FloatType.name ⇒
         expr match {
-          case Some(e) ⇒ faker.expression(e).toDouble
+          case Some(e) ⇒ resolveExpr(e).toDouble
           case None ⇒ rnd.nextDouble()
         }
 
       case s: ScalarType[_] if s.name == BooleanType.name ⇒
         expr match {
-          case Some(e) ⇒ faker.expression(e).toBoolean
+          case Some(e) ⇒ resolveExpr(e).toBoolean
           case None ⇒ rnd.nextBoolean()
         }
 
@@ -128,6 +129,13 @@ case class FakeValue(expr: Option[String], min: Option[Int], max: Option[Int], p
     coerceType(ctx.field.fieldType)
   }
 
+  def resolveExpr(e: String) = {
+    if (FakeValue.ExpressionPattern.matcher(e).find())
+      faker.expression(e)
+    else
+      faker.expression("#{" + e + "}")
+  }
+  
   def resolveDate = {
     val isPast =
       (past, future) match {
@@ -147,7 +155,9 @@ case class FakeValue(expr: Option[String], min: Option[Int], max: Option[Int], p
   }
 }
 
-
+object FakeValue {
+  val ExpressionPattern = Pattern.compile("#\\{([a-z0-9A-Z_.]+)\\s?(?:'([^']+)')?(?:,'([^']+)')*\\}")
+}
 
 
 
