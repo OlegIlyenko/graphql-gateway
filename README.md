@@ -30,7 +30,7 @@ Docker container accepts a number of environment variables:
 
 * **General**
   * `PORT` - Int - server port (by default 8080)
-  * `BIND_HOST` - String - bind port (by default 0.0.0.0)
+  * `BIND_HOST` - String - bind host (by default 0.0.0.0)
   * `GRAPHIQL` - Boolean - enable/disable GraphiQL (by default true)
   * `INCLUDE_DIRECTIVES` - List of String - include specific directive sets (available directive sets are: http, graphql, faker, basic)
   * `EXCLUDE_DIRECTIVES` - List of String - exclude specific directive sets (available directive sets are: http, graphql, faker, basic)
