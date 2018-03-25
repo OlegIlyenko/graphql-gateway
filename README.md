@@ -567,7 +567,7 @@ Placeholders may be used in some the directive arguments (inside of the strings)
 ${value.$.results[0].film}
 ```
             
-The placeholder consists of two parts separated by dot (`.`): the scope (`value` in this case) and the extractor (`$.results[0].film` - a JSON Path extractor in this example). The scope defines a place/value from which you would like extract a value. Following scopes are supported:
+The placeholder consists of two parts separated by dot (`.`): the scope (`value` in this case) and the extractor (`$.results[0].film`) - a JSON Path extractor in this example). The scope defines a place/value from which you would like extract a value. Following scopes are supported:
 
 * `arg` - field argument
 * `value` - a context value
