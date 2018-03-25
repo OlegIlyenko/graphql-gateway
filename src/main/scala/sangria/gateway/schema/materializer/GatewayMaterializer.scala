@@ -32,7 +32,7 @@ class GatewayMaterializer(directiveProviders: Seq[DirectiveProvider])(implicit e
 
     AnyFieldResolver {
       case origin if !origin.isInstanceOf[ExistingSchemaOrigin[_, _]] ⇒ c ⇒ {
-        val fn = ar.find(_.isDefinedAt(c)).getOrElse(throw new SchemaMaterializationException("Can't handle value: " + c.value))
+        val fn = ar.find(_.isDefinedAt(c)).getOrElse(throw new SchemaMaterializationException(s"Field resolver is not defined. Unable to handle value `${c.value}`."))
 
         fn(c)
       }
