@@ -58,5 +58,6 @@ object FileMonitorActor {
   case class FileChange(file: File)
   case object Threshold
 
-  def props(paths: Seq[File], threshold: FiniteDuration, globs: Seq[String], cb: Vector[File] ⇒ Unit) = Props(new FileMonitorActor(paths, threshold, globs, cb))
+  def props(paths: Seq[File], threshold: FiniteDuration, globs: Seq[String], cb: Vector[File] ⇒ Unit) =
+    Props(new FileMonitorActor(paths, threshold, globs, cb))
 }

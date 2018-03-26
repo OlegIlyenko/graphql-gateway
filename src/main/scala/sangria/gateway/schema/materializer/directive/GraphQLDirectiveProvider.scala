@@ -170,5 +170,3 @@ object GraphQLDirectiveProvider {
       locations = Set(DirectiveLocation.Object))
   }
 }
-
-

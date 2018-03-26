@@ -142,7 +142,7 @@ type Info {
 type Query {
   name: String! @fake(expr: "#{name.fullName}")
   address: String! @fake(expr: "#{address.fullAddress} - #{numerify 'SOME######'}")
-  address: Info! @fake
+  info: Info! @fake
 }
 ``` 
 
