@@ -8,8 +8,8 @@ schema
     name: "starWars"
     url: "http://try.sangria-graphql.org/graphql"
   }, {
-    name: "universe"
-    url: "https://www.universe.com/graphql/beta"
+    name: "db"
+    url: "https://developer.deutschebahn.com/free1bahnql/graphql"
   }]) {
 
   query: Query
@@ -21,7 +21,7 @@ The root query type.
 type Query
   @include(fields: [
     {schema: "starWars", type: "Query"}
-    {schema: "universe", type: "Query"}
+    {schema: "db", type: "Query"}
   ]) {
 
 	"A character from the StarWars (REST API)"
