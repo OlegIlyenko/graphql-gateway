@@ -1,5 +1,6 @@
 package sangria.gateway.schema.materializer.directive
 
+import io.circe.Json
 import sangria.gateway.schema.materializer.{GatewayContext, GraphQLIncludedSchema}
 import sangria.schema._
 import sangria.ast
@@ -9,6 +10,7 @@ import sangria.marshalling.queryAst.queryAstInputUnmarshaller
 import sangria.validation.TypeInfo
 import sangria.visitor.VisitorCommand
 import sangria.introspection.TypeNameMetaField
+import sangria.marshalling.circe._
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
@@ -35,7 +37,8 @@ class GraphQLDirectiveProvider(implicit ec: ExecutionContext) extends DirectiveP
             selections = updatedFields)
           val query = ast.Document(queryOp +: fragments)
 
-          ctx.request(schema, query, c.ctx.queryVars, c.astFields.head.outputName)
+          ctx.request(schema, query, c.ctx.queryVars, c.astFields.head.outputName).map(value ⇒
+            ResolverBasedAstSchemaBuilder.extractValue[Json](c.field.fieldType, Some(value)))
         }
     },
 
