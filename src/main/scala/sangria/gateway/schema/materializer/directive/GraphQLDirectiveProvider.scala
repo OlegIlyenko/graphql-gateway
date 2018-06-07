@@ -43,12 +43,23 @@ class GraphQLDirectiveProvider(implicit ec: ExecutionContext) extends DirectiveP
     },
 
     ExistingScalarResolver {
-      case ctx if ctx.existing.name != CustomScalars.DateTimeType.name ⇒
+      case ctx if
+          ctx.origin.isInstanceOf[GraphQLIncludedSchema] ||
+          ctx.existing.name != CustomScalars.DateTimeType.name ⇒
+
         ctx.existing.copy(
           coerceUserInput = Right(_),
           coerceOutput = (v, _) ⇒ v,
           coerceInput = v ⇒ Right(queryAstInputUnmarshaller.getScalaScalarValue(v)))
     },
+
+    // Current behaviour: for all conflicting types, only one would be picked -
+    // we assume that their structure and semantics are the same.
+    // Potential future improvement: provide more flexible, directive-based approach to resolve the name conflicts
+    ConflictResolver((origin, conflictingTypes) ⇒
+      conflictingTypes
+        .collectFirst{case opt: BuiltMaterializedTypeInst ⇒ opt}
+        .getOrElse(conflictingTypes.head)),
 
     DirectiveFieldProvider(Dirs.IncludeField, _.withArgs(Args.Fields) { fields ⇒
       fields.toList.flatMap { f ⇒

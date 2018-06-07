@@ -12,7 +12,7 @@ scalacOptions ++= Seq("-deprecation", "-feature")
 
 mainClass in Compile := Some("sangria.gateway.Main")
 
-val sangriaVersion = "1.4.1-SNAPSHOT"
+val sangriaVersion = "1.4.2-SNAPSHOT"
 val circeVersion = "0.9.2"
 
 libraryDependencies ++= Seq(
