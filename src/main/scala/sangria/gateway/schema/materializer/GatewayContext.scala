@@ -45,7 +45,7 @@ case class GatewayContext(client: HttpClient, rnd: Option[Random], faker: Option
         .collect {case obj: ObjectLikeType[_, _] ⇒ obj}
         .flatMap { t ⇒
           val fields = includeFields match  {
-            case Some(inc) ⇒ t.uniqueFields.filter(f ⇒ includeFields contains f.name)
+            case Some(inc) ⇒ t.uniqueFields.filter(f ⇒ includeFields.forall(_.contains(f.name)))
             case _ ⇒ t.uniqueFields
           }
 
