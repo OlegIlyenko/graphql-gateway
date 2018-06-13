@@ -4,8 +4,10 @@ import language.postfixOps
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
+import play.api.libs.ws.ahc.StandaloneAhcWSClient
+import play.shaded.ahc.org.asynchttpclient.DefaultAsyncHttpClient
 import sangria.gateway.AppConfig
-import sangria.gateway.http.client.AkkaHttpClient
+import sangria.gateway.http.client.PlayHttpClient
 import sangria.gateway.schema.materializer.GatewayMaterializer
 import sangria.gateway.schema.materializer.directive._
 import sangria.gateway.schema.{ReloadableSchemaProvider, StaticSchemaProvider}
@@ -15,12 +17,13 @@ import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
 
 class GatewayServer extends Logging {
-  implicit val system = ActorSystem("sangria-server")
-  implicit val materializer = ActorMaterializer()
+  implicit val system: ActorSystem = ActorSystem("sangria-server")
+  implicit val materializer: ActorMaterializer = ActorMaterializer()
 
   import system.dispatcher
 
-  val client = new AkkaHttpClient
+  //val client = new AkkaHttpClient
+  val client = new PlayHttpClient(new StandaloneAhcWSClient(new DefaultAsyncHttpClient))
 
   val directiveProviders = Map(
     "http" → new HttpDirectiveProvider(client),
