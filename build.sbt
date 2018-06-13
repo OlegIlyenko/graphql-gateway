@@ -34,6 +34,8 @@ libraryDependencies ++= Seq(
 
   "com.jayway.jsonpath" % "json-path" % "2.3.0",
 
+  "com.typesafe.play" %% "play-ahc-ws-standalone" % "1.1.9",
+
   "com.iheart" %% "ficus" % "1.4.3",
   "com.github.javafaker" % "javafaker" % "0.14",
   "info.henix" %% "ssoup" % "0.5",
