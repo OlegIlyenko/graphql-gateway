@@ -31,10 +31,11 @@ class GraphQLDirectiveProvider(implicit ec: ExecutionContext) extends DirectiveP
         c ⇒ {
           val (updatedFields, fragments, vars) = prepareOriginFields(o, c.query, c.schema, c.astFields, c.parentType)
           val varDefs = vars.toVector.flatMap(v ⇒ c.query.operation(c.ctx.operationName).get.variables.find(_.name == v))
-          val queryOp = ast.OperationDefinition(ast.OperationType.Query,
-            name = Some("DelegatedQuery"),
-            variables = varDefs,
-            selections = updatedFields)
+          val (ot, n) = c.query.operations.map(_._2.operationType).toSeq.distinct.toList match {
+            case h :: Nil => (h, Some("Delegated" + h))
+            case x => throw new IllegalStateException(s"Query contains operations [${x.mkString(", ")}].")
+          }
+          val queryOp = ast.OperationDefinition(operationType = ot, name = n, variables = varDefs, selections = updatedFields)
           val query = ast.Document(queryOp +: fragments)
 
           ctx.request(schema, query, c.ctx.queryVars, c.astFields.head.outputName).map(value ⇒
