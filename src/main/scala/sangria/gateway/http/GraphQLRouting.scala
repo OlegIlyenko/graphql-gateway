@@ -16,9 +16,11 @@ import io.circe.optics.JsonPath._
 import io.circe.parser._
 import sangria.ast.Document
 import sangria.execution._
+import sangria.execution.deferred.DeferredResolver
 import sangria.gateway.AppConfig
 import sangria.gateway.schema.SchemaProvider
 import sangria.gateway.schema.materializer.GatewayContext
+import sangria.gateway.schema.materializer.directive.RequestResolver
 import sangria.gateway.util.Logging
 import sangria.parser.{QueryParser, SyntaxError}
 import sangria.marshalling.circe._
@@ -28,7 +30,11 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
 
-class GraphQLRouting[Val](config: AppConfig, schemaProvider: SchemaProvider[GatewayContext, Val])(implicit ec: ExecutionContext) extends Logging {
+class GraphQLRouting[Val](
+  config: AppConfig,
+  schemaProvider: SchemaProvider[GatewayContext, Val],
+  deferredResolver: DeferredResolver[GatewayContext]
+)(implicit ec: ExecutionContext) extends Logging {
   val route: Route =
     path("graphql") {
       get {
@@ -126,7 +132,7 @@ class GraphQLRouting[Val](config: AppConfig, schemaProvider: SchemaProvider[Gate
     else
       withSlowLog
   }
-  
+
   def executeGraphQL(query: Document, operationName: Option[String], variables: Json) =
     complete(schemaProvider.schemaInfo.flatMap {
       case Some(schemaInfo) ⇒
@@ -139,7 +145,7 @@ class GraphQLRouting[Val](config: AppConfig, schemaProvider: SchemaProvider[Gate
           queryReducers = reducers.asInstanceOf[List[QueryReducer[GatewayContext, _]]],
           middleware = middleware ++ schemaInfo.middleware,
           exceptionHandler = exceptionHandler,
-          deferredResolver = schemaInfo.deferredResolver)
+          deferredResolver = deferredResolver)
             .map(res ⇒ TRM(OK → res))
             .recover {
               case error: QueryAnalysisError ⇒ TRM(BadRequest → error.resolveError)

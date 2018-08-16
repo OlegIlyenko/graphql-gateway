@@ -26,7 +26,7 @@ class GatewayServer extends Logging {
   val client = new PlayHttpClient(new StandaloneAhcWSClient(new DefaultAsyncHttpClient))
 
   val directiveProviders = Map(
-    "http" → new HttpDirectiveProvider(client),
+    "http" → new HttpDirectiveProvider,
     "graphql" → new GraphQLDirectiveProvider,
     "faker" → new FakerDirectiveProvider,
     "basic" → new BasicDirectiveProvider)
@@ -43,7 +43,7 @@ class GatewayServer extends Logging {
 
       schemaProvider.schemaInfo // trigger initial schema load at startup
 
-      val routing = new GraphQLRouting(config, schemaProvider)
+      val routing = new GraphQLRouting(config, schemaProvider, new RequestResolver(client))
 
       Http().bindAndHandle(routing.route, config.bindHost, config.port).andThen {
         case Success(_) ⇒
