@@ -11,6 +11,12 @@ trait HttpClient {
     queryParams: Seq[(String, String)] = Seq.empty,
     headers: Seq[(String, String)] = Seq.empty,
     body: Option[(String, String)] = None): Future[HttpResponse]
+
+  def oauthClientCredentials(
+    url: String,
+    clientId: String,
+    clientSecret: String,
+    scopes: Seq[String]): Future[HttpResponse]
 }
 
 object HttpClient {

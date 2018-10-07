@@ -11,7 +11,7 @@ import sangria.ast
 import sangria.gateway.AppConfig
 import sangria.gateway.http.client.HttpClient
 import sangria.gateway.json.CirceJsonPath
-import sangria.gateway.schema.materializer.directive.{BasicDirectiveProvider, FakerDirectiveProvider, GraphQLDirectiveProvider}
+import sangria.gateway.schema.materializer.directive.{BasicDirectiveProvider, FakerDirectiveProvider, GraphQLDirectiveProvider, OAuthClientCredentials}
 import sangria.gateway.util.Logging
 import sangria.schema._
 import sangria.schema.ResolverBasedAstSchemaBuilder.resolveDirectives
@@ -36,10 +36,12 @@ case class GatewayContext(client: HttpClient, rnd: Option[Random], faker: Option
 
     val body = Json.fromFields(withVars)
 
+    val url = GatewayContext.fillPlaceholders(Some(c), schema.include.url)
     val queryParams = schema.include.queryParams
-    val headers = schema.include.headers ++ extractDelegatedHeaders(c, Some(schema.include.delegateHeaders))
+    val oauthHead = oauthHeaders(schema.oauthToken)
+    val headers = oauthHead ++ schema.include.headers ++ extractDelegatedHeaders(c, Some(schema.include.delegateHeaders))
 
-    client.request(HttpClient.Method.Post, schema.include.url, queryParams, headers, Some("application/json" → body.noSpaces)).flatMap(GatewayContext.parseJson).map(resp ⇒
+    client.request(HttpClient.Method.Post, url, queryParams, headers, Some("application/json" → body.noSpaces)).flatMap(GatewayContext.parseJson).map(resp ⇒
       root.data.at(extractName).getOption(resp).flatten.get)
   }
 
@@ -136,8 +138,8 @@ object GatewayContext extends Logging {
 
     resolveDirectives(schemaAst,
       GenericDirectiveResolver(Dirs.IncludeGraphQL, resolve = c ⇒
-          c.withArgs(Args.Name, Args.Url, Args.Headers, Args.DelegateHeaders, Args.QueryParams)((name, url, headers, delegateHeaders, queryParams) ⇒
-            Some(GraphQLInclude(url, name, extractMap(None, headers), extractMap(None, queryParams), delegateHeaders getOrElse Seq.empty)))))
+        c.withArgs(Args.Name, Args.Url, Args.Headers, Args.DelegateHeaders, Args.QueryParams, Args.OAuth)((name, url, headers, delegateHeaders, queryParams, oauth) ⇒
+          Some(GraphQLInclude(url, name, extractMap(None, headers), extractMap(None, queryParams), delegateHeaders getOrElse Seq.empty, oauth)))))
   }
 
   def fakerConfig(schemaAst: ast.Document) = {
@@ -151,13 +153,43 @@ object GatewayContext extends Logging {
   def loadIncludedSchemas(client: HttpClient, includes: Vector[GraphQLInclude])(implicit ec: ExecutionContext): Future[Vector[GraphQLIncludedSchema]] = {
     val loaded =
       includes.map { include ⇒
-        val introspectionBody = Json.obj("query" → Json.fromString(sangria.introspection.introspectionQuery(schemaDescription = false, directiveRepeatableFlag = false).renderPretty))
+        include.oauth match {
+          case Some(oauth) ⇒
+            for {
+              token ← loadOAuthToken(client, oauth)
+              resp ← loadSchemaIntorospection(client, include, token)
+            } yield GraphQLIncludedSchema(include, Schema.buildFromIntrospection(resp), token)
 
-        client.request(HttpClient.Method.Post, include.url, include.queryParams, include.headers, Some("application/json" → introspectionBody.noSpaces)).flatMap(parseJson).map(resp ⇒
-          GraphQLIncludedSchema(include, Schema.buildFromIntrospection(resp)))
+          case None ⇒
+            loadSchemaIntorospection(client, include, None)
+              .map(resp ⇒ GraphQLIncludedSchema(include, Schema.buildFromIntrospection(resp), None))
+        }
       }
 
     Future.sequence(loaded)
+  }
+
+  def loadSchemaIntorospection(client: HttpClient, include: GraphQLInclude, oauthToken: Option[String])(implicit ec: ExecutionContext) = {
+    val introspectionBody = Json.obj("query" → Json.fromString(sangria.introspection.introspectionQuery(schemaDescription = false, directiveRepeatableFlag = false).renderPretty))
+    val url = GatewayContext.fillPlaceholders(None, include.url)
+    val oauthHead = oauthHeaders(oauthToken)
+
+    client.request(HttpClient.Method.Post, url, include.queryParams, include.headers ++ oauthHead, Some("application/json" → introspectionBody.noSpaces)).flatMap(parseJson)
+  }
+
+  def oauthHeaders(oauthToken: Option[String]) = oauthToken match {
+    case Some(token) ⇒ Seq("Authorization" → s"Bearer $token")
+    case _ ⇒ Seq.empty
+  }
+
+  def loadOAuthToken(client: HttpClient, credentials: OAuthClientCredentials)(implicit ec: ExecutionContext) = {
+    val url = GatewayContext.fillPlaceholders(None, credentials.url)
+    val clientId = GatewayContext.fillPlaceholders(None, credentials.clientId)
+    val clientSecret = GatewayContext.fillPlaceholders(None, credentials.clientSecret)
+    val scopes = credentials.scopes.map(GatewayContext.fillPlaceholders(None, _))
+
+    client.oauthClientCredentials(url, clientId, clientSecret, scopes).flatMap(parseJson)
+      .map(json ⇒ json.asObject.get.apply("access_token").flatMap(_.asString))
   }
 
   def loadContext(config: AppConfig, client: HttpClient, schemaAst: ast.Document)(implicit ec: ExecutionContext): Future[GatewayContext] = {
@@ -203,8 +235,8 @@ object GatewayContext extends Logging {
   }
 }
 
-case class GraphQLInclude(url: String, name: String, headers: Seq[(String, String)], queryParams: Seq[(String, String)], delegateHeaders: Seq[String])
-case class GraphQLIncludedSchema(include: GraphQLInclude, schema: Schema[_, _]) extends MatOrigin {
+case class GraphQLInclude(url: String, name: String, headers: Seq[(String, String)], queryParams: Seq[(String, String)], delegateHeaders: Seq[String], oauth: Option[OAuthClientCredentials])
+case class GraphQLIncludedSchema(include: GraphQLInclude, schema: Schema[_, _], oauthToken: Option[String]) extends MatOrigin {
   private val rootTypeNames = Set(schema.query.name) ++ schema.mutation.map(_.name).toSet ++ schema.subscription.map(_.name).toSet
 
   val types = schema.allTypes.values

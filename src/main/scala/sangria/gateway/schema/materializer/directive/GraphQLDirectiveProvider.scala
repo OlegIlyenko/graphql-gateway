@@ -3,6 +3,7 @@ package sangria.gateway.schema.materializer.directive
 import io.circe.Json
 import sangria.gateway.schema.materializer.{GatewayContext, GraphQLIncludedSchema}
 import sangria.schema._
+import sangria.macros.derive._
 import sangria.ast
 import sangria.ast.AstVisitor
 import sangria.gateway.schema.CustomScalars
@@ -12,6 +13,7 @@ import sangria.validation.TypeInfo
 import sangria.visitor.VisitorCommand
 import sangria.introspection.TypeNameMetaField
 import sangria.marshalling.circe._
+import io.circe.generic.auto._
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
@@ -155,12 +157,15 @@ class GraphQLDirectiveProvider(implicit ec: ExecutionContext) extends DirectiveP
 
 object GraphQLDirectiveProvider {
   object Args {
+    val OAuthClientCredentialsType = deriveInputObjectType[OAuthClientCredentials]()
+
     val Name = Argument("name", StringType)
     val Url = Argument("url", StringType)
     val Headers = Argument("headers", OptionInputType(ListInputType(HeaderType)))
     val DelegateHeaders = Argument("delegateHeaders", OptionInputType(ListInputType(StringType)),
       "Delegate headers from original gateway request to the downstream services.")
     val QueryParams = Argument("query", OptionInputType(ListInputType(QueryParamType)))
+    val OAuth = Argument("oauth", OptionInputType(OAuthClientCredentialsType))
 
     val Schema = Argument("schema", StringType)
     val Type = Argument("type", StringType)
@@ -171,7 +176,7 @@ object GraphQLDirectiveProvider {
   object Dirs {
     val IncludeGraphQL = Directive("includeGraphQL",
       repeatable = true,
-      arguments = Args.Name :: Args.Url :: Args.Headers :: Args.DelegateHeaders :: Args.QueryParams :: Nil,
+      arguments = Args.Name :: Args.Url :: Args.Headers :: Args.DelegateHeaders :: Args.QueryParams :: Args.OAuth :: Nil,
       locations = Set(DirectiveLocation.Schema))
 
     val IncludeFields = Directive("includeFields",
@@ -180,3 +185,5 @@ object GraphQLDirectiveProvider {
       locations = Set(DirectiveLocation.Object))
   }
 }
+
+case class OAuthClientCredentials(url: String, clientId: String, clientSecret: String, scopes: Seq[String])

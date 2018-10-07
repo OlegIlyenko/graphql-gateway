@@ -32,6 +32,9 @@ class AkkaHttpClient(implicit system: ActorSystem, mat: Materializer, ec: Execut
     richClient(request).map(AkkaHttpResponse(m, url, _))
   }
 
+  override def oauthClientCredentials(url: String, clientId: String, clientSecret: String, scopes: Seq[String]): Future[HttpResponse] =
+    throw new IllegalStateException("Not yet implemented, please use play implementation.")
+
   private def contentType(str: String) = ContentType.parse(str).fold(
     errors ⇒ throw ClientError(s"Invalid content type '$str'", errors.map(_.detail)),
     identity)

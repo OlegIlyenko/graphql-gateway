@@ -2,7 +2,7 @@ package sangria.gateway.http.client
 
 import akka.util.ByteString
 import io.circe.parser._
-import play.api.libs.ws.{BodyWritable, InMemoryBody, StandaloneWSClient}
+import play.api.libs.ws.{BodyWritable, InMemoryBody, StandaloneWSClient, WSAuthScheme}
 import sangria.gateway.http.client.HttpClient.Method
 import sangria.gateway.util.Logging
 
@@ -34,6 +34,23 @@ class PlayHttpClient(ws: StandaloneWSClient)(implicit ec: ExecutionContext) exte
       override def isSuccessful = rsp.status >= 200 && rsp.status < 300
       override def asString = Future.successful(rsp.body)
       override def debugInfo = s"$method $url"
+    })
+  }
+
+  override def oauthClientCredentials(url: String, clientId: String, clientSecret: String, scopes: Seq[String]): Future[HttpClient.HttpResponse] = {
+    val request =
+      ws.url(url)
+        .withMethod("POST")
+        .withAuth(clientId, clientSecret, WSAuthScheme.BASIC)
+        .withBody(Map("grant_type" → Seq("client_credentials"), "scope" → scopes))
+
+    logger.debug(s"HTTP OAuth client credentials request: $url")
+
+    request.execute().map(rsp ⇒ new HttpClient.HttpResponse {
+      override def statusCode = rsp.status
+      override def isSuccessful = rsp.status >= 200 && rsp.status < 300
+      override def asString = Future.successful(rsp.body)
+      override def debugInfo = s"POST $url"
     })
   }
 
