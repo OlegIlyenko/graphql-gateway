@@ -24,7 +24,7 @@ class GraphQLDirectiveProvider(implicit ec: ExecutionContext) extends DirectiveP
   private val TypeNameField = ast.Field(None, TypeNameMetaField.name, Vector.empty, Vector.empty, Vector.empty)
 
   def resolvers(ctx: GatewayContext) = Seq(
-    AdditionalDirectives(Seq(Dirs.IncludeGraphQL)),
+    AdditionalDirectives(Seq(Dirs.IncludeSchema)),
     AdditionalTypes(ctx.allTypes.toList),
 
     ExistingFieldResolver {
@@ -167,14 +167,14 @@ object GraphQLDirectiveProvider {
     val QueryParams = Argument("query", OptionInputType(ListInputType(QueryParamType)))
     val OAuth = Argument("oauth", OptionInputType(OAuthClientCredentialsType))
 
-    val Schema = Argument("schema", StringType)
-    val Type = Argument("type", StringType)
+    val Schema = Argument("schema", StringType, description = "the name of the schema included with @includeGraphQL")
+    val Type = Argument("type", StringType, description = "name of the type from the external schema")
     val Fields = Argument("fields", OptionInputType(ListInputType(StringType)))
     val Excludes = Argument("excludes", OptionInputType(ListInputType(StringType)))
   }
 
   object Dirs {
-    val IncludeGraphQL = Directive("includeGraphQL",
+    val IncludeSchema = Directive("includeSchema",
       repeatable = true,
       arguments = Args.Name :: Args.Url :: Args.Headers :: Args.DelegateHeaders :: Args.QueryParams :: Args.OAuth :: Nil,
       locations = Set(DirectiveLocation.Schema))

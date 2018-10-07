@@ -61,7 +61,12 @@ value as a JSON object and will return its property with the same name. (check o
 #### `@httpGet`
 
 ```graphql
-directive @httpGet(url: String!, headers: [Header!], query: [QueryParam!], forAll: String) on FIELD_DEFINITION
+directive @httpGet(
+  url: String!, 
+  headers: [Header!],
+  delegateHeaders: [String!] 
+  query: [QueryParam!], 
+  forAll: String) on FIELD_DEFINITION
 
 input Header {
   name: String!
@@ -85,37 +90,45 @@ Supports following arguments:
 
 `url`, `headers` and `query` may contain the placeholders which are described below. `value` directive may be used in combination with `httpGet` - it will extract part of the relevant JSON out of the HTTP response.
 
-#### `@includeGraphQL`
+#### `@includeSchema`
 
 ```graphql
-directive @includeGraphQL(schemas: [GraphQLSchemaInclude!]!) on SCHEMA
-
-input GraphQLSchemaInclude {
+directive @includeSchema(
   name: String!
   url: String!
+  headers: [Header!],
+  delegateHeaders: [String!] 
+  query: [QueryParam!]
+  oauth: OAuthClientCredentials) repeatable on SCHEMA
+
+input OAuthClientCredentials {
+  url: String!
+  clientId: String!
+  clientSecret: String!
+  scopes: [String!]!
 } 
 ```
 
-Includes external GraphQL schemas (based on GraphQL endpoint URL)
+Includes external GraphQL schema (based on GraphQL endpoint URL)
 
-#### `@include`
+#### `@includeFields`
 
 ```graphql
-directive @include(fields: [GraphQLIncludeFields!]!) on OBJECT
-
-input GraphQLIncludeFields {
+directive @includeFields(
   "the name of the schema included with @includeGraphQL"
   schema: String!
   
-  "name of the type from the extenal schema" 
+  "the name of the type from the external schema" 
   type: String!
   
   "optional list of fields to include (of not provided, all fields are included)"    
   fields: [String!]
-} 
+  
+  "optional list of fields to exclude"    
+  excludes: [String!]) repeatable on OBJECT
 ```
 
-Adds fields loaded from the external GraphQL schema
+Adds fields loaded from the external GraphQL schema.
 
 #### `@fake`
 

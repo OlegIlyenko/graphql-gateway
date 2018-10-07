@@ -137,7 +137,7 @@ object GatewayContext extends Logging {
     import GraphQLDirectiveProvider.{Args, Dirs}
 
     resolveDirectives(schemaAst,
-      GenericDirectiveResolver(Dirs.IncludeGraphQL, resolve = c ⇒
+      GenericDirectiveResolver(Dirs.IncludeSchema, resolve = c ⇒
         c.withArgs(Args.Name, Args.Url, Args.Headers, Args.DelegateHeaders, Args.QueryParams, Args.OAuth)((name, url, headers, delegateHeaders, queryParams, oauth) ⇒
           Some(GraphQLInclude(url, name, extractMap(None, headers), extractMap(None, queryParams), delegateHeaders getOrElse Seq.empty, oauth)))))
   }

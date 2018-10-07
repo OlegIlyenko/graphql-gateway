@@ -4,8 +4,8 @@
 # * Merges and delegates execution for 2 GraphQL external GraphQL API
 
 extend schema
-  @includeGraphQL(name: "starWars", url: "http://try.sangria-graphql.org/graphql")
-  @includeGraphQL(name: "db", url: "https://developer.deutschebahn.com/free1bahnql/graphql")
+  @includeSchema(name: "starWars", url: "http://try.sangria-graphql.org/graphql")
+  @includeSchema(name: "db", url: "https://developer.deutschebahn.com/free1bahnql/graphql")
 
 """
 The root query type.
