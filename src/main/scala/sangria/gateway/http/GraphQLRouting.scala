@@ -30,46 +30,51 @@ import scala.util.control.NonFatal
 
 class GraphQLRouting[Val](config: AppConfig, schemaProvider: SchemaProvider[GatewayContext, Val])(implicit ec: ExecutionContext) extends Logging {
   val route: Route =
-    path("graphql") {
-      get {
-        (includeIf(config.graphiql) & explicitlyAccepts(`text/html`)) {
-          getFromResource("assets/graphiql.html")
-        } ~
-        parameters('query, 'operationName.?, 'variables.?) { (query, operationName, variables) ⇒
-          QueryParser.parse(query) match {
-            case Success(ast) ⇒
-              variables.map(parse) match {
-                case Some(Left(error)) ⇒ complete(BadRequest, formatError(error))
-                case Some(Right(json)) ⇒ executeGraphQL(ast, operationName, json)
-                case None ⇒ executeGraphQL(ast, operationName, Json.obj())
-              }
-            case Failure(error) ⇒ complete(BadRequest, formatError(error))
-          }
-        }
-      } ~
-      post {
-        parameters('query.?, 'operationName.?, 'variables.?) { (queryParam, operationNameParam, variablesParam) ⇒
-          entity(as[Json]) { body ⇒
-            val query = queryParam orElse root.query.string.getOption(body)
-            val operationName = operationNameParam orElse root.operationName.string.getOption(body)
-            val variablesStr = variablesParam orElse root.variables.string.getOption(body)
-
-            query.map(QueryParser.parse(_)) match {
-              case Some(Success(ast)) ⇒
-                variablesStr.map(parse) match {
-                  case Some(Left(error)) ⇒ complete(BadRequest, formatError(error))
-                  case Some(Right(json)) ⇒ executeGraphQL(ast, operationName, json)
-                  case None ⇒ executeGraphQL(ast, operationName, root.variables.json.getOption(body) getOrElse Json.obj())
-                }
-              case Some(Failure(error)) ⇒ complete(BadRequest, formatError(error))
-              case None ⇒ complete(BadRequest, formatError("No query to execute"))
-            }
+    optionalHeaderValueByName("X-Apollo-Tracing") { tracing ⇒
+      path("graphql") {
+        get {
+          (includeIf(config.graphiql || config.playground) & explicitlyAccepts(`text/html`)) {
+            if (config.playground)
+              getFromResource("assets/playground.html")
+            else
+              getFromResource("assets/graphiql.html")
           } ~
-          entity(as[Document]) { document ⇒
-            variablesParam.map(parse) match {
-              case Some(Left(error)) ⇒ complete(BadRequest, formatError(error))
-              case Some(Right(json)) ⇒ executeGraphQL(document, operationNameParam, json)
-              case None ⇒ executeGraphQL(document, operationNameParam, Json.obj())
+          parameters('query, 'operationName.?, 'variables.?) { (query, operationName, variables) ⇒
+            QueryParser.parse(query) match {
+              case Success(ast) ⇒
+                variables.map(parse) match {
+                  case Some(Left(error)) ⇒ complete(BadRequest, formatError(error))
+                  case Some(Right(json)) ⇒ executeGraphQL(ast, operationName, json, tracing.isDefined)
+                  case None ⇒ executeGraphQL(ast, operationName, Json.obj(), tracing.isDefined)
+                }
+              case Failure(error) ⇒ complete(BadRequest, formatError(error))
+            }
+          }
+        } ~
+        post {
+          parameters('query.?, 'operationName.?, 'variables.?) { (queryParam, operationNameParam, variablesParam) ⇒
+            entity(as[Json]) { body ⇒
+              val query = queryParam orElse root.query.string.getOption(body)
+              val operationName = operationNameParam orElse root.operationName.string.getOption(body)
+              val variablesStr = variablesParam orElse root.variables.string.getOption(body)
+
+              query.map(QueryParser.parse(_)) match {
+                case Some(Success(ast)) ⇒
+                  variablesStr.map(parse) match {
+                    case Some(Left(error)) ⇒ complete(BadRequest, formatError(error))
+                    case Some(Right(json)) ⇒ executeGraphQL(ast, operationName, json, tracing.isDefined)
+                    case None ⇒ executeGraphQL(ast, operationName, root.variables.json.getOption(body) getOrElse Json.obj(), tracing.isDefined)
+                  }
+                case Some(Failure(error)) ⇒ complete(BadRequest, formatError(error))
+                case None ⇒ complete(BadRequest, formatError("No query to execute"))
+              }
+            } ~
+            entity(as[Document]) { document ⇒
+              variablesParam.map(parse) match {
+                case Some(Left(error)) ⇒ complete(BadRequest, formatError(error))
+                case Some(Right(json)) ⇒ executeGraphQL(document, operationNameParam, json, tracing.isDefined)
+                case None ⇒ executeGraphQL(document, operationNameParam, Json.obj(), tracing.isDefined)
+              }
             }
           }
         }
@@ -114,20 +119,13 @@ class GraphQLRouting[Val](config: AppConfig, schemaProvider: SchemaProvider[Gate
     baseReducers ++ List(complexityRejector, depthRejector)
   }
 
-  private val middleware = {
-    val withSlowLog =
-      if (config.slowLog.enabled)
-        SlowLog(logger.underlying, config.slowLog.threshold, config.slowLog.extension) :: Nil
-      else
-        Nil
-
-    if (config.slowLog.apolloTracing)
-      SlowLog.apolloTracing :: withSlowLog
+  private val middleware =
+    if (config.slowLog.enabled)
+      SlowLog(logger.underlying, config.slowLog.threshold, config.slowLog.extension) :: Nil
     else
-      withSlowLog
-  }
+      Nil
   
-  def executeGraphQL(query: Document, operationName: Option[String], variables: Json) =
+  def executeGraphQL(query: Document, operationName: Option[String], variables: Json, tracing: Boolean) =
     complete(schemaProvider.schemaInfo.flatMap {
       case Some(schemaInfo) ⇒
         val actualVariables = if (variables.isNull) Json.obj() else variables
@@ -137,7 +135,7 @@ class GraphQLRouting[Val](config: AppConfig, schemaProvider: SchemaProvider[Gate
           variables = actualVariables,
           operationName = operationName,
           queryReducers = reducers.asInstanceOf[List[QueryReducer[GatewayContext, _]]],
-          middleware = middleware ++ schemaInfo.middleware,
+          middleware = middleware ++ schemaInfo.middleware ++ (if (tracing && config.slowLog.apolloTracing) SlowLog.apolloTracing :: Nil else Nil),
           exceptionHandler = exceptionHandler,
           deferredResolver = schemaInfo.deferredResolver)
             .map(res ⇒ TRM(OK → res))

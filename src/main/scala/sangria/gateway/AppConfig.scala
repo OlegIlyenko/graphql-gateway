@@ -35,6 +35,7 @@ case class AppConfig(
   port: Int,
   bindHost: String,
   graphiql: Boolean,
+  playground: Boolean,
   slowLog: SlowLogConfig,
   watch: WatchConfig,
   limit: LimitConfig,
