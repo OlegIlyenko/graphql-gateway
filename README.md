@@ -1,6 +1,8 @@
 **graphql-gateway** - SDL-based GraphQL gateway for REST and GraphQL-based micro-services
 
 [![Build Status](https://travis-ci.org/OlegIlyenko/graphql-gateway.svg?branch=master)](https://travis-ci.org/OlegIlyenko/graphql-gateway)
+[![](https://images.microbadger.com/badges/image/tenshi/graphql-gateway.svg)](https://microbadger.com/images/tenshi/graphql-gateway "Get your own image badge on microbadger.com")
+[![](https://images.microbadger.com/badges/version/tenshi/graphql-gateway.svg)](https://microbadger.com/images/tenshi/graphql-gateway "Get your own version badge on microbadger.com")
 
 ⚠️ **Project is a POC and at very early experimental/WIP stage!** ⚠️
 
