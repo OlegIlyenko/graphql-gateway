@@ -2,7 +2,7 @@ package sangria.gateway.file
 
 import java.nio.file._
 
-import better.files.{Files, _}
+import better.files._
 import com.sun.nio.file.SensitivityWatchEventModifier
 
 import scala.concurrent.ExecutionContext
@@ -41,7 +41,7 @@ class FileMonitor(val root: File, maxDepth: Int) extends File.Monitor {
   }
 
   protected[this] def watch(file: File, depth: Int): Unit = {
-    def toWatch: Files = if (file.isDirectory) {
+    def toWatch: Iterator[File] = if (file.isDirectory) {
       file.walk(depth).filter(f ⇒ f.isDirectory && f.exists)
     } else {
       when(file.exists)(file.parent).iterator  // There is no way to watch a regular file; so watch its parent instead
@@ -53,7 +53,7 @@ class FileMonitor(val root: File, maxDepth: Int) extends File.Monitor {
           Try[Unit](f.path.register(service, File.Events.all.toArray,
             // this is com.sun internal, but the service is useless on OSX without it
             SensitivityWatchEventModifier.HIGH))
-          .recover(PartialFunction(onException)).get)
+          .recover {case error ⇒ onException(error)}.get)
     catch {
       case NonFatal(e) ⇒ onException(e)
     }
