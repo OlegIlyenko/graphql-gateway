@@ -20,11 +20,14 @@ import sangria.marshalling.queryAst._
 import sangria.marshalling.MarshallingUtil._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.collection.JavaConverters._
 
 case class GatewayContext(client: HttpClient, rnd: Option[Random], faker: Option[Faker], vars: Json, graphqlIncludes: Vector[GraphQLIncludedSchema], operationName: Option[String] = None, queryVars: Json = Json.obj()) {
   import GatewayContext._
   
   val allTypes = graphqlIncludes.flatMap(_.types)
+
+  val envJson = Json.obj(System.getenv().asScala.mapValues(Json.fromString).toSeq: _*)
 
   def request(schema: GraphQLIncludedSchema, query: ast.Document, variables: Json, extractName: String)(implicit ec: ExecutionContext): Future[Json] = {
     val fields = Vector("query" → Json.fromString(query.renderPretty))
@@ -73,6 +76,7 @@ case class GatewayContext(client: HttpClient, rnd: Option[Random], faker: Option
         case "ctx" ⇒ ctx.ctx.vars
         case "arg" ⇒ args
         case "elem" ⇒ elem
+        case "env" ⇒ envJson
         case s ⇒ throw new IllegalStateException(s"Unsupported placeholder scope '$s'. Supported scopes are: value, ctx, arg, elem.")
       }
 
