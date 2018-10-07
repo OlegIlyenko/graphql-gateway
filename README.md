@@ -1571,6 +1571,7 @@ The placeholder consists of two parts separated by dot (`.`): the scope (`value`
 * `value` - a context value
 * `ctx` - a context value which is defined on a schema level
 * `elem` - an extracted element that comes from the `forAll` argument
+* `env` - an environment variable
 
 The extractor can be either a string (the name of the property) or a [JSON Path](http://goessner.net/articles/JsonPath/) expression.
 
