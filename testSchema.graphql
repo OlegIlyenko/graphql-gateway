@@ -3,26 +3,16 @@
 # * Proxies some endpoints from the http://swapi.co
 # * Merges and delegates execution for 2 GraphQL external GraphQL API
 
-schema
-  @includeGraphQL(schemas: [{
-    name: "starWars"
-    url: "http://try.sangria-graphql.org/graphql"
-  }, {
-    name: "db"
-    url: "https://developer.deutschebahn.com/free1bahnql/graphql"
-  }]) {
-
-  query: Query
-}
+extend schema
+  @includeGraphQL(name: "starWars", url: "http://try.sangria-graphql.org/graphql")
+  @includeGraphQL(name: "db", url: "https://developer.deutschebahn.com/free1bahnql/graphql")
 
 """
 The root query type.
 """
 type Query
-  @include(fields: [
-    {schema: "starWars", type: "Query"}
-    {schema: "db", type: "Query"}
-  ]) {
+  @includeFields(schema: "starWars", type: "Query")
+  @includeFields(schema: "db", type: "Query") {
 
 	"A character from the StarWars (REST API)"
   person(id: Int!): Person

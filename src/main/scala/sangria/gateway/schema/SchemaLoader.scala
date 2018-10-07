@@ -74,5 +74,5 @@ class SchemaLoader(config: AppConfig, client: HttpClient, mat: GatewayMaterializ
   }
 
   private def executeIntrospection(schema: Schema[GatewayContext, Any], ctx: GatewayContext) =
-    Executor.execute(schema, sangria.introspection.introspectionQuery, ctx)
+    Executor.execute(schema, sangria.introspection.introspectionQuery(schemaDescription = false, directiveRepeatableFlag = false), ctx)
 }

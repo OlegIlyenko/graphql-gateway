@@ -40,14 +40,14 @@ class BasicDirectiveProvider(implicit ec: ExecutionContext) extends DirectivePro
 
     DynamicDirectiveResolver[GatewayContext, Json]("const", c ⇒
       extractValue(c.ctx.field.fieldType, Some(c.args.get("value") match {
-        case Some(json: Json) if json.isString ⇒ Json.fromString(c.ctx.ctx.fillPlaceholders(c.ctx, json.asString.get))
+        case Some(json: Json) if json.isString ⇒ Json.fromString(GatewayContext.fillPlaceholders(Some(c.ctx), json.asString.get))
         case Some(jv) ⇒ jv
         case _ ⇒ Json.Null
       }))),
 
     DirectiveResolver(Dirs.JsonConst, c ⇒
       extractValue(c.ctx.field.fieldType,
-        Some(io.circe.parser.parse(c.ctx.ctx.fillPlaceholders(c.ctx, c arg Args.JsonValue)).fold(throw _, identity)))))
+        Some(io.circe.parser.parse(GatewayContext.fillPlaceholders(Some(c.ctx), c arg Args.JsonValue)).fold(throw _, identity)))))
 
   override val anyResolver = Some({
     case c if c.value.isInstanceOf[Json] ⇒ ResolverBasedAstSchemaBuilder.extractFieldValue[GatewayContext, Json](c)

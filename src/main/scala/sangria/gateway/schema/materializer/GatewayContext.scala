@@ -18,18 +18,17 @@ import sangria.schema.ResolverBasedAstSchemaBuilder.resolveDirectives
 import sangria.marshalling.circe._
 import sangria.marshalling.queryAst._
 import sangria.marshalling.MarshallingUtil._
+import sangria.gateway.schema.materializer.directive.HttpDirectiveProvider.{extractDelegatedHeaders, extractMap}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.JavaConverters._
 
-case class GatewayContext(client: HttpClient, rnd: Option[Random], faker: Option[Faker], vars: Json, graphqlIncludes: Vector[GraphQLIncludedSchema], operationName: Option[String] = None, queryVars: Json = Json.obj()) {
+case class GatewayContext(client: HttpClient, rnd: Option[Random], faker: Option[Faker], vars: Json, graphqlIncludes: Vector[GraphQLIncludedSchema], operationName: Option[String] = None, queryVars: Json = Json.obj(), originalHeaders: Seq[(String, String)] = Seq.empty) {
   import GatewayContext._
   
   val allTypes = graphqlIncludes.flatMap(_.types)
 
-  val envJson = Json.obj(System.getenv().asScala.mapValues(Json.fromString).toSeq: _*)
-
-  def request(schema: GraphQLIncludedSchema, query: ast.Document, variables: Json, extractName: String)(implicit ec: ExecutionContext): Future[Json] = {
+  def request(c: Context[GatewayContext, _], schema: GraphQLIncludedSchema, query: ast.Document, variables: Json, extractName: String)(implicit ec: ExecutionContext): Future[Json] = {
     val fields = Vector("query" → Json.fromString(query.renderPretty))
     val withVars =
       if (variables != Json.obj()) fields :+ ("variables" → variables)
@@ -37,29 +36,41 @@ case class GatewayContext(client: HttpClient, rnd: Option[Random], faker: Option
 
     val body = Json.fromFields(withVars)
 
-    client.request(HttpClient.Method.Post, schema.include.url, body = Some("application/json" → body.noSpaces)).flatMap(GatewayContext.parseJson).map(resp ⇒
+    val queryParams = schema.include.queryParams
+    val headers = schema.include.headers ++ extractDelegatedHeaders(c, Some(schema.include.delegateHeaders))
+
+    client.request(HttpClient.Method.Post, schema.include.url, queryParams, headers, Some("application/json" → body.noSpaces)).flatMap(GatewayContext.parseJson).map(resp ⇒
       root.data.at(extractName).getOption(resp).flatten.get)
   }
 
-  def findFields(name: String, typeName: String, includeFields: Option[Seq[String]]): List[MaterializedField[GatewayContext, _]] =
+  def findFields(name: String, typeName: String, includeFields: Option[Seq[String]], excludeFields: Option[Seq[String]]): List[MaterializedField[GatewayContext, _]] =
     graphqlIncludes.find(_.include.name == name).toList.flatMap { s ⇒
       val tpe = s.schema.getOutputType(ast.NamedType(typeName), topLevel = true)
       val fields = tpe.toList
         .collect {case obj: ObjectLikeType[_, _] ⇒ obj}
         .flatMap { t ⇒
-          val fields = includeFields match  {
+          val withIncludes = includeFields match  {
             case Some(inc) ⇒ t.uniqueFields.filter(f ⇒ includeFields.forall(_.contains(f.name)))
             case _ ⇒ t.uniqueFields
           }
 
-          fields.asInstanceOf[Vector[Field[GatewayContext, Any]]]
+          val withExcludes = excludeFields match  {
+            case Some(excl) ⇒ withIncludes.filterNot(f ⇒ excl.contains(f.name))
+            case _ ⇒ withIncludes
+          }
+
+          withExcludes.asInstanceOf[Vector[Field[GatewayContext, Any]]]
         }
 
       fields.map(f ⇒ MaterializedField(s, f.copy(astDirectives = Vector(ast.Directive("delegate", Vector.empty)))))
     }
+}
 
-  def fillPlaceholders(ctx: Context[GatewayContext, _], value: String, cachedArgs: Option[Json] = None, elem: Json = Json.Null): String = {
-    lazy val args = cachedArgs getOrElse convertArgs(ctx.args, ctx.astFields.head)
+object GatewayContext extends Logging {
+  val envJson = Json.obj(System.getenv().asScala.mapValues(Json.fromString).toSeq: _*)
+
+  def fillPlaceholders(ctx: Option[Context[GatewayContext, _]], value: String, cachedArgs: Option[Json] = None, elem: Json = Json.Null): String = {
+    lazy val args = cachedArgs orElse ctx.map(c ⇒ convertArgs(c.args, c.astFields.head)) getOrElse Json.obj()
 
     PlaceholderRegExp.findAllMatchIn(value).toVector.foldLeft(value) { case (acc, p) ⇒
       val placeholder = p.group(0)
@@ -71,13 +82,17 @@ case class GatewayContext(client: HttpClient, rnd: Option[Random], faker: Option
       val (scope, selectorWithDot) = p.group(1).splitAt(idx)
       val selector = selectorWithDot.substring(1)
 
+      def unsupported(s: String) = throw new IllegalStateException(s"Unsupported placeholder scope '$s'. Supported scopes are: value, ctx, arg, elem.")
+
       val source = scope match {
-        case "value" ⇒ ctx.value.asInstanceOf[Json]
-        case "ctx" ⇒ ctx.ctx.vars
-        case "arg" ⇒ args
+        case "value" ⇒ ctx.getOrElse(unsupported("value")).value.asInstanceOf[Json]
+        case "ctx" ⇒ ctx.getOrElse(unsupported("ctx")).ctx.vars
+        case "arg" ⇒
+          ctx.getOrElse(unsupported("arg"))
+          args
         case "elem" ⇒ elem
         case "env" ⇒ envJson
-        case s ⇒ throw new IllegalStateException(s"Unsupported placeholder scope '$s'. Supported scopes are: value, ctx, arg, elem.")
+        case s ⇒ unsupported(s)
       }
 
       val value =
@@ -89,9 +104,7 @@ case class GatewayContext(client: HttpClient, rnd: Option[Random], faker: Option
       acc.replace(placeholder, value)
     }
   }
-}
 
-object GatewayContext extends Logging {
   def parseJson(resp: HttpClient.HttpResponse)(implicit ec: ExecutionContext) =
     if (resp.isSuccessful)
       resp.asString.map(s ⇒ {
@@ -118,10 +131,14 @@ object GatewayContext extends Logging {
     }.flatten)
   }
 
-  def graphqlIncludes(schemaAst: ast.Document) =
+  def graphqlIncludes(schemaAst: ast.Document) = {
+    import GraphQLDirectiveProvider.{Args, Dirs}
+
     resolveDirectives(schemaAst,
-      GenericDirectiveResolver(GraphQLDirectiveProvider.Dirs.IncludeGraphQL, resolve =
-          c ⇒ Some(c.arg(GraphQLDirectiveProvider.Args.Schemas).map(s ⇒ GraphQLInclude(s("url").asInstanceOf[String], s("name").asInstanceOf[String]))))).flatten
+      GenericDirectiveResolver(Dirs.IncludeGraphQL, resolve = c ⇒
+          c.withArgs(Args.Name, Args.Url, Args.Headers, Args.DelegateHeaders, Args.QueryParams)((name, url, headers, delegateHeaders, queryParams) ⇒
+            Some(GraphQLInclude(url, name, extractMap(None, headers), extractMap(None, queryParams), delegateHeaders getOrElse Seq.empty)))))
+  }
 
   def fakerConfig(schemaAst: ast.Document) = {
     import sangria.gateway.schema.materializer.directive.FakerDirectiveProvider._
@@ -134,9 +151,9 @@ object GatewayContext extends Logging {
   def loadIncludedSchemas(client: HttpClient, includes: Vector[GraphQLInclude])(implicit ec: ExecutionContext): Future[Vector[GraphQLIncludedSchema]] = {
     val loaded =
       includes.map { include ⇒
-        val introspectionBody = Json.obj("query" → Json.fromString(sangria.introspection.introspectionQuery.renderPretty))
+        val introspectionBody = Json.obj("query" → Json.fromString(sangria.introspection.introspectionQuery(schemaDescription = false, directiveRepeatableFlag = false).renderPretty))
 
-        client.request(HttpClient.Method.Post, include.url, body = Some("application/json" → introspectionBody.noSpaces)).flatMap(parseJson).map(resp ⇒
+        client.request(HttpClient.Method.Post, include.url, include.queryParams, include.headers, Some("application/json" → introspectionBody.noSpaces)).flatMap(parseJson).map(resp ⇒
           GraphQLIncludedSchema(include, Schema.buildFromIntrospection(resp)))
       }
 
@@ -186,7 +203,7 @@ object GatewayContext extends Logging {
   }
 }
 
-case class GraphQLInclude(url: String, name: String)
+case class GraphQLInclude(url: String, name: String, headers: Seq[(String, String)], queryParams: Seq[(String, String)], delegateHeaders: Seq[String])
 case class GraphQLIncludedSchema(include: GraphQLInclude, schema: Schema[_, _]) extends MatOrigin {
   private val rootTypeNames = Set(schema.query.name) ++ schema.mutation.map(_.name).toSet ++ schema.subscription.map(_.name).toSet
 

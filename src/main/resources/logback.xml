@@ -13,8 +13,9 @@
   <logger name="com.typesafe" level="ERROR"/>
   <logger name="akka" level="ERROR"/>
   <logger name="com.jayway.jsonpath" level="OFF"/>
+  <logger name="play.shaded.ahc" level="INFO"/>
 
-  <root level="INFO">
+  <root level="DEBUG">
     <appender-ref ref="STDOUT" />
   </root>
 </configuration>

@@ -39,20 +39,20 @@ class GraphQLRouting[Val](config: AppConfig, schemaProvider: SchemaProvider[Gate
             else
               getFromResource("assets/graphiql.html")
           } ~
-          parameters('query, 'operationName.?, 'variables.?) { (query, operationName, variables) ⇒
+          (extractRequestContext & parameters('query, 'operationName.?, 'variables.?)) { (request, query, operationName, variables) ⇒
             QueryParser.parse(query) match {
               case Success(ast) ⇒
                 variables.map(parse) match {
                   case Some(Left(error)) ⇒ complete(BadRequest, formatError(error))
-                  case Some(Right(json)) ⇒ executeGraphQL(ast, operationName, json, tracing.isDefined)
-                  case None ⇒ executeGraphQL(ast, operationName, Json.obj(), tracing.isDefined)
+                  case Some(Right(json)) ⇒ executeGraphQL(ast, operationName, json, tracing.isDefined, extractHeaders(request))
+                  case None ⇒ executeGraphQL(ast, operationName, Json.obj(), tracing.isDefined, extractHeaders(request))
                 }
               case Failure(error) ⇒ complete(BadRequest, formatError(error))
             }
           }
         } ~
         post {
-          parameters('query.?, 'operationName.?, 'variables.?) { (queryParam, operationNameParam, variablesParam) ⇒
+          (extractRequestContext & parameters('query.?, 'operationName.?, 'variables.?)) { (request, queryParam, operationNameParam, variablesParam) ⇒
             entity(as[Json]) { body ⇒
               val query = queryParam orElse root.query.string.getOption(body)
               val operationName = operationNameParam orElse root.operationName.string.getOption(body)
@@ -62,8 +62,8 @@ class GraphQLRouting[Val](config: AppConfig, schemaProvider: SchemaProvider[Gate
                 case Some(Success(ast)) ⇒
                   variablesStr.map(parse) match {
                     case Some(Left(error)) ⇒ complete(BadRequest, formatError(error))
-                    case Some(Right(json)) ⇒ executeGraphQL(ast, operationName, json, tracing.isDefined)
-                    case None ⇒ executeGraphQL(ast, operationName, root.variables.json.getOption(body) getOrElse Json.obj(), tracing.isDefined)
+                    case Some(Right(json)) ⇒ executeGraphQL(ast, operationName, json, tracing.isDefined, extractHeaders(request))
+                    case None ⇒ executeGraphQL(ast, operationName, root.variables.json.getOption(body) getOrElse Json.obj(), tracing.isDefined, extractHeaders(request))
                   }
                 case Some(Failure(error)) ⇒ complete(BadRequest, formatError(error))
                 case None ⇒ complete(BadRequest, formatError("No query to execute"))
@@ -72,8 +72,8 @@ class GraphQLRouting[Val](config: AppConfig, schemaProvider: SchemaProvider[Gate
             entity(as[Document]) { document ⇒
               variablesParam.map(parse) match {
                 case Some(Left(error)) ⇒ complete(BadRequest, formatError(error))
-                case Some(Right(json)) ⇒ executeGraphQL(document, operationNameParam, json, tracing.isDefined)
-                case None ⇒ executeGraphQL(document, operationNameParam, Json.obj(), tracing.isDefined)
+                case Some(Right(json)) ⇒ executeGraphQL(document, operationNameParam, json, tracing.isDefined, extractHeaders(request))
+                case None ⇒ executeGraphQL(document, operationNameParam, Json.obj(), tracing.isDefined, extractHeaders(request))
               }
             }
           }
@@ -124,13 +124,16 @@ class GraphQLRouting[Val](config: AppConfig, schemaProvider: SchemaProvider[Gate
       SlowLog(logger.underlying, config.slowLog.threshold, config.slowLog.extension) :: Nil
     else
       Nil
-  
-  def executeGraphQL(query: Document, operationName: Option[String], variables: Json, tracing: Boolean) =
+
+  def extractHeaders(request: RequestContext) =
+    request.request.headers.map(h ⇒ h.name() → h.value())
+
+  def executeGraphQL(query: Document, operationName: Option[String], variables: Json, tracing: Boolean, originalHeaders: Seq[(String, String)]) =
     complete(schemaProvider.schemaInfo.flatMap {
       case Some(schemaInfo) ⇒
         val actualVariables = if (variables.isNull) Json.obj() else variables
 
-        Executor.execute(schemaInfo.schema, query, schemaInfo.ctx.copy(operationName = operationName, queryVars = actualVariables),
+        Executor.execute(schemaInfo.schema, query, schemaInfo.ctx.copy(operationName = operationName, queryVars = actualVariables, originalHeaders = originalHeaders),
           root = schemaInfo.value,
           variables = actualVariables,
           operationName = operationName,

@@ -6,6 +6,7 @@ import sangria.schema._
 import sangria.ast
 import sangria.ast.AstVisitor
 import sangria.gateway.schema.CustomScalars
+import sangria.gateway.schema.materializer.directive.HttpDirectiveProvider.Args.{HeaderType, QueryParamType}
 import sangria.marshalling.queryAst.queryAstInputUnmarshaller
 import sangria.validation.TypeInfo
 import sangria.visitor.VisitorCommand
@@ -37,7 +38,7 @@ class GraphQLDirectiveProvider(implicit ec: ExecutionContext) extends DirectiveP
             selections = updatedFields)
           val query = ast.Document(queryOp +: fragments)
 
-          ctx.request(schema, query, c.ctx.queryVars, c.astFields.head.outputName).map(value ⇒
+          ctx.request(c, schema, query, c.ctx.queryVars, c.astFields.head.outputName).map(value ⇒
             ResolverBasedAstSchemaBuilder.extractValue[Json](c.field.fieldType, Some(value)))
         }
     },
@@ -61,15 +62,8 @@ class GraphQLDirectiveProvider(implicit ec: ExecutionContext) extends DirectiveP
         .collectFirst{case opt: BuiltMaterializedTypeInst ⇒ opt}
         .getOrElse(conflictingTypes.head)),
 
-    DirectiveFieldProvider(Dirs.IncludeField, _.withArgs(Args.Fields) { fields ⇒
-      fields.toList.flatMap { f ⇒
-        val name = f("schema").asInstanceOf[String]
-        val typeName = f("type").asInstanceOf[String]
-        val includes = f.get("fields").asInstanceOf[Option[Option[Seq[String]]]].flatten
-
-        ctx.findFields(name, typeName, includes)
-      }
-    }))
+    DirectiveFieldProvider(Dirs.IncludeFields, _.withArgs(Args.Schema, Args.Type, Args.Fields, Args.Excludes)((schema, tpe, fields, excludes) ⇒
+      ctx.findFields(schema, tpe, fields, excludes))))
 
   private def prepareOriginFields(origin: GraphQLIncludedSchema, query: ast.Document, schema: Schema[GatewayContext, _], queryFields: Vector[ast.Field], parentType: OutputType[_]) =
     queryFields.foldLeft((Vector.empty[ast.Field], Vector.empty[ast.FragmentDefinition], Set.empty[String])) {
@@ -161,26 +155,28 @@ class GraphQLDirectiveProvider(implicit ec: ExecutionContext) extends DirectiveP
 
 object GraphQLDirectiveProvider {
   object Args {
-    val IncludeType = InputObjectType("GraphQLSchemaInclude", fields = List(
-      InputField("name", StringType),
-      InputField("url", StringType)))
+    val Name = Argument("name", StringType)
+    val Url = Argument("url", StringType)
+    val Headers = Argument("headers", OptionInputType(ListInputType(HeaderType)))
+    val DelegateHeaders = Argument("delegateHeaders", OptionInputType(ListInputType(StringType)),
+      "Delegate headers from original gateway request to the downstream services.")
+    val QueryParams = Argument("query", OptionInputType(ListInputType(QueryParamType)))
 
-    val IncludeFieldsType = InputObjectType("GraphQLIncludeFields", fields = List(
-      InputField("schema", StringType),
-      InputField("type", StringType),
-      InputField("fields", OptionInputType(ListInputType(StringType)))))
-
-    val Schemas = Argument("schemas", ListInputType(IncludeType))
-    val Fields = Argument("fields", ListInputType(IncludeFieldsType))
+    val Schema = Argument("schema", StringType)
+    val Type = Argument("type", StringType)
+    val Fields = Argument("fields", OptionInputType(ListInputType(StringType)))
+    val Excludes = Argument("excludes", OptionInputType(ListInputType(StringType)))
   }
 
   object Dirs {
     val IncludeGraphQL = Directive("includeGraphQL",
-      arguments = Args.Schemas :: Nil,
+      repeatable = true,
+      arguments = Args.Name :: Args.Url :: Args.Headers :: Args.DelegateHeaders :: Args.QueryParams :: Nil,
       locations = Set(DirectiveLocation.Schema))
 
-    val IncludeField = Directive("include",
-      arguments = Args.Fields :: Nil,
+    val IncludeFields = Directive("includeFields",
+      repeatable = true,
+      arguments = Args.Schema :: Args.Type :: Args.Fields :: Args.Excludes :: Nil,
       locations = Set(DirectiveLocation.Object))
   }
 }
