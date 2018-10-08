@@ -34,13 +34,14 @@ Docker container accepts a number of environment variables:
   * `PORT` - Int - server port (by default 8080)
   * `BIND_HOST` - String - bind host (by default 0.0.0.0)
   * `GRAPHIQL` - Boolean - enable/disable GraphiQL (by default true)
+  * `PLAYGROUND` - Boolean - enable/disable graphql-playground which replaces GraphiQL (by default true)
   * `INCLUDE_DIRECTIVES` - List of String - include specific directive sets (available directive sets are: http, graphql, faker, basic)
   * `EXCLUDE_DIRECTIVES` - List of String - exclude specific directive sets (available directive sets are: http, graphql, faker, basic)
 * **Query tracing and logging**  
   * `SLOW_LOG_ENABLED` - Boolean - enable/disable logging of slow queries (by default true)
   * `SLOW_LOG_THRESHOLD` - FiniteDuration - SlowLog extension threshold (by default 10 seconds)
   * `SLOW_LOG_EXTENSION` - Boolean - enable/disable SlowLog GraphQL extension (by default false)
-  * `SLOW_LOG_APOLLO_TRACING` - Boolean - enable/disable Apollo tracing GraphQL extension (by default false)
+  * `SLOW_LOG_APOLLO_TRACING` - Boolean - enable/disable Apollo tracing GraphQL extension (by default true)
 * **Schema live reloading**
   * `WATCH_ENABLED` - Boolean - enable/disable schema file reloader (by default true)
   * `WATCH_THRESHOLD` - FiniteDuration - internal poll interval for file watcher (by default 50 millis)
